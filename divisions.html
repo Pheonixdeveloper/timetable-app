@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CE Timetable — Divisions</title>
+    <meta name="description" content="Manage CE semester-wise class divisions and student strength." />
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+        .div-card {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            transition: all var(--transition);
+        }
+
+        .div-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .div-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: .6rem;
+        }
+
+        .div-name {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .div-strength {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .div-strength-label {
+            font-size: .75rem;
+            color: var(--text-3);
+        }
+
+        .div-bar-wrap {
+            background: var(--surface2);
+            border-radius: 99px;
+            height: 6px;
+            overflow: hidden;
+            margin: .6rem 0;
+        }
+
+        .div-bar {
+            height: 100%;
+            border-radius: 99px;
+            transition: width .4s ease;
+        }
+
+        .div-actions {
+            display: flex;
+            gap: .5rem;
+            margin-top: .75rem;
+        }
+
+        .sem-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding: .65rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-weight: 600;
+        }
+
+        .sem-divider {
+            border: none;
+            border-top: 1.5px dashed var(--border);
+            margin: 1.5rem 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="brand">
+            <div class="logo-icon">CE</div>CE Timetable
+        </div>
+        <div class="nav-links">
+            <a href="index.html"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></a>
+            <a href="classrooms.html"><span class="nav-icon">🏫</span><span class="nav-label">Classrooms</span></a>
+            <a href="divisions.html" class="active"><span class="nav-icon">👥</span><span
+                    class="nav-label">Divisions</span></a>
+            <a href="allocation.html"><span class="nav-icon">📐</span><span class="nav-label">Allocation</span></a>
+            <a href="timetable.html"><span class="nav-icon">📅</span><span class="nav-label">Timetable</span></a>
+        </div>
+    </nav>
+
+    <div class="page-wrapper">
+
+        <!-- Header -->
+        <div class="page-header">
+            <div>
+                <div class="step-badge">👥 STEP 1</div>
+                <h1>Class Divisions</h1>
+                <p>CE semester-wise divisions with individual student strength. Semesters 1–4 are core-only; 5–8 include
+                    electives.</p>
+            </div>
+            <button class="btn btn-primary" id="btn-add-div">➕ Add Division</button>
+        </div>
+
+        <!-- Semester Filter Tabs -->
+        <div class="pill-tabs" id="sem-tabs"></div>
+
+        <!-- Subject type info bar -->
+        <div id="sem-info-bar" style="margin-bottom:1.25rem;"></div>
+
+        <!-- Grid -->
+        <div class="card-grid" id="div-grid"></div>
+        <div class="empty-state" id="empty-state" style="display:none;">
+            <div class="es-icon">👥</div>
+            <p>No divisions for this semester. Click <strong>Add Division</strong> to begin.</p>
+        </div>
+
+    </div>
+
+    <!-- Add / Edit Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Add Division</h2>
+                <button class="modal-close" id="modal-close">✕</button>
+            </div>
+            <form id="div-form" novalidate>
+                <input type="hidden" id="edit-id" />
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="div-sem">Semester *</label>
+                        <select id="div-sem" required>
+                            <option value="">— Select —</option>
+                            <option value="1">Semester 1</option>
+                            <option value="2">Semester 2</option>
+                            <option value="3">Semester 3</option>
+                            <option value="4">Semester 4</option>
+                            <option value="5">Semester 5</option>
+                            <option value="6">Semester 6</option>
+                            <option value="7">Semester 7</option>
+                            <option value="8">Semester 8</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="div-name">Division Name *</label>
+                        <input type="text" id="div-name" placeholder="e.g. 4CE-A" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="div-strength">Student Strength *</label>
+                    <input type="number" id="div-strength" placeholder="e.g. 60" min="1" max="999" required />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">💾 Save Division</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div class="modal-overlay" id="delete-overlay">
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>Delete Division?</h2>
+                <button class="modal-close" id="del-close">✕</button>
+            </div>
+            <p style="color:var(--text-2);font-size:.93rem;">Remove <strong id="del-div-name"></strong> permanently?</p>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="del-cancel">Cancel</button>
+                <button class="btn btn-danger" id="del-confirm">🗑️ Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="js/data.js"></script>
+    <script src="js/divisions.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,83 @@
+/* ============================================================
+   CE Timetable — Global Light Theme (React)
+   ============================================================ */
+
+:root {
+    --bg: #f4f6fb;
+    --surface: #ffffff;
+    --surface2: #eef1f8;
+    --border: #dce1ec;
+    --primary: #4361ee;
+    --primary-d: #3451d1;
+    --primary-l: #eef0fd;
+    --accent: #7209b7;
+    --success: #2b9348;
+    --success-l: #d8f3dc;
+    --warning: #e76f51;
+    --warning-l: #fde8e2;
+    --info: #0096c7;
+    --info-l: #d0f0fb;
+    --danger: #d62828;
+    --danger-l: #fde8e8;
+    --text: #1a1d2e;
+    --text-2: #4a4e6a;
+    --text-3: #8a8fa8;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 2px 12px rgba(67, 97, 238, .10);
+    --shadow-lg: 0 8px 32px rgba(67, 97, 238, .14);
+    --nav-h: 64px;
+    --transition: .18s ease;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+a {
+    text-decoration: none;
+    color: var(--primary);
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface2);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+@media print {
+
+    nav,
+    .no-print {
+        display: none !important;
+    }
+}

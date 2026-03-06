@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CE Timetable — Smart Allocation</title>
+    <meta name="description" content="Smart classroom allocation based on student strength and room capacity." />
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+        .alloc-controls {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .alloc-legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .82rem;
+            color: var(--text-2);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .scenario-section {
+            margin-bottom: 2rem;
+        }
+
+        .scenario-section h3 {
+            font-size: .9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-2);
+            margin-bottom: .75rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        .alloc-card {
+            position: relative;
+        }
+
+        .alloc-card .type-tag {
+            position: absolute;
+            top: .85rem;
+            right: .85rem;
+        }
+
+        .alloc-room-select {
+            margin-top: .6rem;
+        }
+
+        .alloc-room-select label {
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--text-2);
+        }
+
+        .alloc-room-select select {
+            padding: .35rem .65rem;
+            border: 1.5px solid var(--border);
+            border-radius: 7px;
+            font-size: .85rem;
+            background: var(--surface2);
+            font-family: inherit;
+            outline: none;
+            width: 100%;
+            margin-top: .25rem;
+        }
+
+        .alloc-room-select select:focus {
+            border-color: var(--primary);
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1rem 1.25rem;
+        }
+
+        .stat-card .sc-val {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .stat-card .sc-key {
+            font-size: .75rem;
+            color: var(--text-3);
+            margin-top: .1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="brand">
+            <div class="logo-icon">CE</div>CE Timetable
+        </div>
+        <div class="nav-links">
+            <a href="index.html"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></a>
+            <a href="classrooms.html"><span class="nav-icon">🏫</span><span class="nav-label">Classrooms</span></a>
+            <a href="divisions.html"><span class="nav-icon">👥</span><span class="nav-label">Divisions</span></a>
+            <a href="allocation.html" class="active"><span class="nav-icon">📐</span><span
+                    class="nav-label">Allocation</span></a>
+            <a href="timetable.html"><span class="nav-icon">📅</span><span class="nav-label">Timetable</span></a>
+        </div>
+    </nav>
+
+    <div class="page-wrapper">
+
+        <!-- Header -->
+        <div class="page-header">
+            <div>
+                <div class="step-badge">📐 STEP 2</div>
+                <h1>Smart Classroom Allocation</h1>
+                <p>Auto-match CE divisions to rooms based on student strength. Review suggestions, override as needed,
+                    then save the allocation plan.</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="alloc-controls">
+            <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+                <label for="sem-select"
+                    style="font-size:.85rem;font-weight:600;color:var(--text-2);display:block;margin-bottom:.3rem;">Select
+                    Semester</label>
+                <select id="sem-select">
+                    <option value="1">Semester 1</option>
+                    <option value="2">Semester 2</option>
+                    <option value="3">Semester 3</option>
+                    <option value="4" selected>Semester 4</option>
+                    <option value="5">Semester 5</option>
+                    <option value="6">Semester 6</option>
+                    <option value="7">Semester 7</option>
+                    <option value="8">Semester 8</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:flex-end;">
+                <button class="btn btn-primary" id="btn-run">▶️ Run Allocation</button>
+                <button class="btn btn-success" id="btn-save" style="display:none;">💾 Save Plan</button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row" id="stats-row" style="display:none;"></div>
+
+        <!-- Legend -->
+        <div class="alloc-legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--success);"></div>Individual (fits a room)
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--info);"></div>Combine suggestion available
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--danger);"></div>Overflow (exceeds all rooms)
+            </div>
+        </div>
+
+        <!-- Allocation cards container -->
+        <div id="alloc-output"></div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="empty-state">
+            <div class="es-icon">📐</div>
+            <p>Select a semester and click <strong>Run Allocation</strong> to see smart suggestions.</p>
+        </div>
+
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="js/data.js"></script>
+    <script src="js/allocation.js"></script>
+</body>
+
+</html>
