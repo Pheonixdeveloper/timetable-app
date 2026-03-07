@@ -11,7 +11,7 @@ const steps = [
 const S = {
     wrap: { maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem 4rem' },
     hero: {
-        background: 'linear-gradient(135deg,#4361ee 0%,#7209b7 100%)',
+        background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
         borderRadius: 16, color: '#fff', padding: '2.5rem', marginBottom: '2rem', position: 'relative', overflow: 'hidden',
     },
     h1: { fontSize: '2rem', fontWeight: 800, marginBottom: '.5rem' },
@@ -19,21 +19,21 @@ const S = {
     metaRow: { display: 'flex', gap: '1.5rem', marginTop: '1.5rem', flexWrap: 'wrap' },
     metaPill: { background: 'rgba(255,255,255,.15)', padding: '.35rem .9rem', borderRadius: 99, fontSize: '.85rem' },
     statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '1rem', marginBottom: '2rem' },
-    statCard: { background: '#fff', border: '1px solid #dce1ec', borderRadius: 16, padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' },
+    statCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'background .2s, border-color .2s' },
     statIcon: { fontSize: '1.6rem' },
-    statVal: { fontSize: '1.5rem', fontWeight: 800, color: '#4361ee' },
-    statLabel: { fontSize: '.78rem', color: '#8a8fa8', marginTop: '.1rem' },
-    sectionLabel: { fontSize: '.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#8a8fa8', marginBottom: '1rem' },
+    statVal: { fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' },
+    statLabel: { fontSize: '.78rem', color: 'var(--text-3)', marginTop: '.1rem' },
+    sectionLabel: { fontSize: '.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-3)', marginBottom: '1rem' },
     stepsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: '1.25rem' },
     stepCard: {
-        background: '#fff', border: '1.5px solid #dce1ec', borderRadius: 16, padding: '1.5rem',
+        background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 16, padding: '1.5rem',
         display: 'block', transition: 'all .18s', textDecoration: 'none', color: 'inherit',
         cursor: 'pointer',
     },
     stepIcon: { width: 52, height: 52, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '1rem' },
     stepNum: { display: 'inline-block', fontSize: '.72rem', fontWeight: 700, padding: '.15rem .55rem', borderRadius: 99, marginBottom: '.6rem', letterSpacing: '.04em' },
     stepTitle: { fontSize: '1rem', fontWeight: 700, marginBottom: '.3rem' },
-    stepDesc: { fontSize: '.85rem', color: '#4a4e6a', lineHeight: 1.5 },
+    stepDesc: { fontSize: '.85rem', color: 'var(--text-2)', lineHeight: 1.5 },
 }
 
 export default function Dashboard() {
@@ -78,8 +78,8 @@ export default function Dashboard() {
             <div style={S.stepsGrid}>
                 {steps.map(st => (
                     <Link key={st.to} to={st.to} style={S.stepCard}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = st.color; e.currentTarget.style.boxShadow = '0 8px 32px rgba(67,97,238,.14)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#dce1ec'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}>
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = st.color; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}>
                         <span style={{ ...S.stepNum, background: st.bg, color: st.color }}>{st.step}</span>
                         <div style={{ ...S.stepIcon, background: st.bg }}>{st.icon}</div>
                         <div style={S.stepTitle}>{st.title}</div>

@@ -1,5 +1,5 @@
 export default function Toast({ msg, type = 'info' }) {
-    const bg = type === 'success' ? '#2b9348' : type === 'error' ? '#d62828' : '#4361ee'
+    const bg = type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--primary)'
     const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'
     return (
         <div style={{

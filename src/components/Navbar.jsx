@@ -11,23 +11,23 @@ const links = [
 
 const S = {
     nav: {
-        position: 'sticky', top: 0, zIndex: 100, height: 64, background: '#fff', borderBottom: '1px solid #dce1ec',
-        boxShadow: '0 2px 12px rgba(67,97,238,.1)', display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1rem'
+        position: 'sticky', top: 0, zIndex: 100, height: 64, background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+        boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', padding: '0 2rem', gap: '1rem', transition: 'background .2s, border-color .2s'
     },
-    brand: { display: 'flex', alignItems: 'center', gap: '.6rem', fontWeight: 700, fontSize: '1.1rem', color: '#4361ee', marginRight: 'auto', textDecoration: 'none' },
+    brand: { display: 'flex', alignItems: 'center', gap: '.6rem', fontWeight: 700, fontSize: '1.1rem', color: 'var(--primary)', marginRight: 'auto', textDecoration: 'none' },
     logoIcon: {
-        width: 36, height: 36, borderRadius: 8, background: '#4361ee', color: '#fff', display: 'flex', alignItems: 'center',
+        width: 36, height: 36, borderRadius: 8, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center',
         justifyContent: 'center', fontSize: '1rem', fontWeight: 800
     },
-    links: { display: 'flex', gap: '.25rem' },
+    links: { display: 'flex', gap: '.25rem', alignItems: 'center' },
     link: {
         display: 'flex', alignItems: 'center', gap: '.4rem', padding: '.45rem .85rem', borderRadius: 10,
-        fontSize: '.88rem', fontWeight: 500, color: '#4a4e6a', transition: 'all .18s', textDecoration: 'none'
+        fontSize: '.88rem', fontWeight: 500, color: 'var(--text-2)', transition: 'all .18s', textDecoration: 'none'
     },
-    activeLink: { background: '#4361ee', color: '#fff' },
+    activeLink: { background: 'var(--primary)', color: '#fff' },
 }
 
-export default function Navbar() {
+export default function Navbar({ theme, toggleTheme }) {
     return (
         <nav style={S.nav}>
             <NavLink to="/" style={S.brand}>
@@ -41,6 +41,17 @@ export default function Navbar() {
                         <span className="nav-label">{l.label}</span>
                     </NavLink>
                 ))}
+                <button
+                    onClick={toggleTheme}
+                    style={{
+                        marginLeft: '.5rem', padding: '.4rem', borderRadius: '50%', border: 'none', background: 'var(--surface2)',
+                        color: 'var(--text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '1.2rem', transition: 'all .2s'
+                    }}
+                    title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+                >
+                    {theme === 'dark' ? '☀️' : '🌙'}
+                </button>
             </div>
         </nav>
     )

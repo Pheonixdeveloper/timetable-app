@@ -7,15 +7,15 @@ export default function Modal({ open, title, onClose, children, maxWidth = 520 }
                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
             }}>
             <div style={{
-                background: '#fff', borderRadius: 16, boxShadow: '0 8px 32px rgba(67,97,238,.14)',
+                background: 'var(--surface)', borderRadius: 16, boxShadow: 'var(--shadow)',
                 width: '100%', maxWidth, padding: '2rem', maxHeight: '90vh', overflowY: 'auto'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>{title}</h2>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text)' }}>{title}</h2>
                     <button onClick={onClose}
                         style={{
-                            width: 32, height: 32, borderRadius: 8, background: '#eef1f8', border: 'none', cursor: 'pointer',
-                            fontSize: '1.1rem', color: '#4a4e6a', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            width: 32, height: 32, borderRadius: 8, background: 'var(--surface2)', border: 'none', cursor: 'pointer',
+                            fontSize: '1.1rem', color: 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
                         ✕
                     </button>

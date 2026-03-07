@@ -7,13 +7,24 @@ import Timetable from './pages/Timetable'
 import Faculty from './pages/Faculty'
 import Subjects from './pages/Subjects'
 import { init } from './data'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function App() {
+    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
+
     useEffect(() => { init(); }, [])
+
+    useEffect(() => {
+        if (theme === 'dark') document.documentElement.classList.add('dark')
+        else document.documentElement.classList.remove('dark')
+        localStorage.setItem('theme', theme)
+    }, [theme])
+
+    const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light')
+
     return (
-        <>
-            <Navbar />
+        <div style={{ background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh', transition: 'background .2s, color .2s' }}>
+            <Navbar theme={theme} toggleTheme={toggleTheme} />
             <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/classrooms" element={<Classrooms />} />
@@ -22,6 +33,6 @@ export default function App() {
                 <Route path="/faculty" element={<Faculty />} />
                 <Route path="/subjects" element={<Subjects />} />
             </Routes>
-        </>
+        </div>
     )
 }

@@ -286,29 +286,33 @@ export function runAllocationForSem(sem) {
 // ---- Timetable Generator ----
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-// Actual college time slots
-const THEORY_PERIODS = [
-    '11:40-12:30',
-    '12:30-1:20',
-    '2:10-2:55',
-    '2:55-3:40',
-    '3:50-4:35',
-    '4:35-5:20',
-];
-// Two-hour lab blocks (pairs of consecutive theory periods)
-const LAB_BLOCKS = [
+// Actual college time slots - Evening
+const EVENING_THEORY_PERIODS = ['11:40-12:30', '12:30-1:20', '2:10-2:55', '2:55-3:40', '3:50-4:35', '4:35-5:20'];
+const EVENING_LAB_BLOCKS = [
     { label: 'Lab A', periods: ['11:40-12:30', '12:30-1:20'] },
     { label: 'Lab B', periods: ['2:10-2:55', '2:55-3:40'] },
     { label: 'Lab C', periods: ['3:50-4:35', '4:35-5:20'] },
 ];
-// All time slots in order for display
-const ALL_SLOTS = [
-    '11:40-12:30', '12:30-1:20',
-    '1:20-2:10',   // Lunch break
-    '2:10-2:55', '2:55-3:40',
-    '3:40-3:50',   // Short break
+const EVENING_ALL_SLOTS = [
+    '11:40-12:30', '12:30-1:20', '1:20-2:10', // 1:20-2:10 Lunch
+    '2:10-2:55', '2:55-3:40', '3:40-3:50',   // 3:40-3:50 Short break
     '3:50-4:35', '4:35-5:20',
 ];
+
+// Actual college time slots - Morning
+const MORNING_THEORY_PERIODS = ['8:30-9:20', '9:20-10:10', '11:00-11:45', '11:45-12:30', '12:40-1:25', '1:25-2:10'];
+const MORNING_LAB_BLOCKS = [
+    { label: 'Lab A', periods: ['8:30-9:20', '9:20-10:10'] },
+    { label: 'Lab B', periods: ['11:00-11:45', '11:45-12:30'] },
+    { label: 'Lab C', periods: ['12:40-1:25', '1:25-2:10'] },
+];
+const MORNING_ALL_SLOTS = [
+    '8:30-9:20', '9:20-10:10', '10:10-11:00', // 10:10-11:00 Lunch equivalent
+    '11:00-11:45', '11:45-12:30', '12:30-12:40', // 12:30-12:40 Short break equivalent
+    '12:40-1:25', '1:25-2:10',
+];
+
+const COMBINED_SLOTS = [...MORNING_ALL_SLOTS, ...EVENING_ALL_SLOTS];
 
 function shuffleArray(array) {
     const arr = [...array];
@@ -319,8 +323,11 @@ function shuffleArray(array) {
     return arr;
 }
 
-export function generateTimetable(sem, divName, divStrength = 60) {
+export function generateTimetable(sem, divName, divStrength = 60, shift = 'evening') {
     const { core, electives } = getSubjectsBySem(sem);
+    const THEORY_PERIODS = shift === 'morning' ? MORNING_THEORY_PERIODS : EVENING_THEORY_PERIODS;
+    const LAB_BLOCKS = shift === 'morning' ? MORNING_LAB_BLOCKS : EVENING_LAB_BLOCKS;
+    const ALL_SLOTS = shift === 'morning' ? MORNING_ALL_SLOTS : EVENING_ALL_SLOTS;
 
     // Normalize subject entries
     const norm = (s) => (typeof s === 'object' && s !== null) ? s : { name: s, hasLab: false, labOnly: false };
@@ -359,8 +366,8 @@ export function generateTimetable(sem, divName, divStrength = 60) {
     DAYS.forEach(day => {
         grid[day] = {};
         ALL_SLOTS.forEach(slot => {
-            if (slot === '1:20-2:10') grid[day][slot] = { subject: 'Lunch Break', type: 'break', room: '' };
-            else if (slot === '3:40-3:50') grid[day][slot] = { subject: 'Short Break', type: 'break', room: '' };
+            if (slot === '1:20-2:10' || slot === '10:10-11:00') grid[day][slot] = { subject: 'Lunch Break', type: 'break', room: '' };
+            else if (slot === '3:40-3:50' || slot === '12:30-12:40') grid[day][slot] = { subject: 'Short Break', type: 'break', room: '' };
             else grid[day][slot] = { subject: '', type: 'empty', room: '' };
         });
     });
@@ -487,7 +494,7 @@ export function generateTimetable(sem, divName, divStrength = 60) {
         });
     });
 
-    return { days: DAYS, periods: ALL_SLOTS, grid, sem, divName, divStrength, theoryRoom: theoryRoom?.name || '' };
+    return { days: DAYS, periods: ALL_SLOTS, grid, sem, divName, divStrength, theoryRoom: theoryRoom?.name || '', shift };
 }
 
 /**
@@ -501,7 +508,7 @@ function getFacultyTimetable(facultyCode) {
     // Initialize empty grid
     DAYS.forEach(d => {
         resultGrid[d] = {};
-        ALL_SLOTS.forEach(p => { resultGrid[d][p] = null; });
+        COMBINED_SLOTS.forEach(p => { resultGrid[d][p] = null; });
     });
 
     Object.values(allTT).forEach(tt => {
@@ -524,6 +531,7 @@ function getFacultyTimetable(facultyCode) {
                             subject: slot.subject,
                             type: 'lab',
                             division: tt.divName,
+                            semester: tt.sem,
                             batch: myBatch.name,
                             room: myBatch.room
                         };
@@ -533,7 +541,7 @@ function getFacultyTimetable(facultyCode) {
         });
     });
 
-    return { days: DAYS, periods: ALL_SLOTS, grid: resultGrid };
+    return { days: DAYS, periods: COMBINED_SLOTS, grid: resultGrid };
 }
 
 /**
@@ -547,7 +555,7 @@ function getClassroomTimetable(roomName) {
     // Initialize empty grid
     DAYS.forEach(d => {
         resultGrid[d] = {};
-        ALL_SLOTS.forEach(p => { resultGrid[d][p] = null; });
+        COMBINED_SLOTS.forEach(p => { resultGrid[d][p] = null; });
     });
 
     Object.values(allTT).forEach(tt => {
@@ -570,6 +578,7 @@ function getClassroomTimetable(roomName) {
                             subject: slot.subject,
                             type: 'lab',
                             division: tt.divName,
+                            semester: tt.sem,
                             batches: myBatches.map(b => ({ name: b.name, faculty: b.faculty }))
                         };
                     }
@@ -578,7 +587,7 @@ function getClassroomTimetable(roomName) {
         });
     });
 
-    return { days: DAYS, periods: ALL_SLOTS, grid: resultGrid };
+    return { days: DAYS, periods: COMBINED_SLOTS, grid: resultGrid };
 }
 
 /**
@@ -595,7 +604,7 @@ function getSubjectTimetable(subjectId) {
     // Initialize empty grid
     DAYS.forEach(d => {
         resultGrid[d] = {};
-        ALL_SLOTS.forEach(p => { resultGrid[d][p] = null; });
+        COMBINED_SLOTS.forEach(p => { resultGrid[d][p] = null; });
     });
 
     const isMatch = (val) => {
@@ -622,6 +631,7 @@ function getSubjectTimetable(subjectId) {
                         resultGrid[day][period] = {
                             type: 'lab',
                             division: tt.divName,
+                            semester: tt.sem,
                             batches: slot.batches.map(b => ({ name: b.name, faculty: b.faculty, room: b.room }))
                         };
                     }
@@ -630,9 +640,31 @@ function getSubjectTimetable(subjectId) {
         });
     });
 
-    return { days: DAYS, periods: ALL_SLOTS, grid: resultGrid };
+    return { days: DAYS, periods: COMBINED_SLOTS, grid: resultGrid };
 }
 
-export { DAYS, ALL_SLOTS as PERIODS, getFacultyTimetable, getClassroomTimetable, getSubjectTimetable };
+// Extracted update individual slot across the timetables (for user manual edit on aggregates)
+export function updateTimetableSlotGlobal(divName, semester, day, period, updatedSlotData) {
+    const allTT = getTimetables();
+    const key = `${semester}_${divName}`;
+    const tt = allTT[key];
+    if (tt && tt.grid[day] && tt.grid[day][period]) {
+        if (updatedSlotData.isBatchEdit) {
+            // Updated a specific lab batch
+            tt.grid[day][period].batches[updatedSlotData.batchIndex] = {
+                ...tt.grid[day][period].batches[updatedSlotData.batchIndex],
+                ...updatedSlotData.data
+            };
+        } else {
+            // Updated a theory slot
+            tt.grid[day][period] = { ...tt.grid[day][period], ...updatedSlotData.data };
+        }
+        setTimetables(allTT);
+        return true;
+    }
+    return false;
+}
+
+export { DAYS, COMBINED_SLOTS as PERIODS, getFacultyTimetable, getClassroomTimetable, getSubjectTimetable };
 
 

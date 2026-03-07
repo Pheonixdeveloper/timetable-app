@@ -30,6 +30,30 @@
     --transition: .18s ease;
 }
 
+.dark {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --border: #475569;
+    --primary: #818cf8;
+    --primary-d: #6366f1;
+    --primary-l: rgba(129, 140, 248, 0.15);
+    --accent: #c084fc;
+    --success: #4ade80;
+    --success-l: rgba(74, 222, 128, 0.15);
+    --warning: #fb923c;
+    --warning-l: rgba(251, 146, 60, 0.15);
+    --info: #38bdf8;
+    --info-l: rgba(56, 189, 248, 0.15);
+    --danger: #f87171;
+    --danger-l: rgba(248, 113, 113, 0.15);
+    --text: #f8fafc;
+    --text-2: #cbd5e1;
+    --text-3: #94a3b8;
+    --shadow: 0 4px 20px rgba(0, 0, 0, .4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, .5);
+}
+
 *,
 *::before,
 *::after {
