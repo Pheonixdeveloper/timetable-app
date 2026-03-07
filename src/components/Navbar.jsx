@@ -4,9 +4,9 @@ const links = [
     { to: '/', icon: '🏠', label: 'Dashboard' },
     { to: '/classrooms', icon: '🏫', label: 'Classrooms' },
     { to: '/divisions', icon: '👥', label: 'Divisions' },
-    { to: '/allocation', icon: '📐', label: 'Allocation' },
     { to: '/timetable', icon: '📅', label: 'Timetable' },
     { to: '/faculty', icon: '👨‍🏫', label: 'Faculty' },
+    { to: '/subjects', icon: '📚', label: 'Subjects' },
 ]
 
 const S = {

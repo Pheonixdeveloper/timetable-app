@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getClassrooms, setClassrooms, uid } from '../data'
+import { getClassrooms, setClassrooms, uid, getClassroomTimetable, PERIODS } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
 
@@ -20,6 +20,7 @@ export default function Classrooms() {
     const [toast, setToast] = useState(null)
     const [modal, setModal] = useState({ open: false, editing: null })
     const [delModal, setDel] = useState({ open: false, id: null, name: '' })
+    const [schedModal, setSched] = useState({ open: false, room: null, data: null })
     const [form, setForm] = useState({ name: '', capacity: '', type: 'classroom' })
 
     const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800) }
@@ -51,6 +52,11 @@ export default function Classrooms() {
     const handleDelete = () => {
         setClassrooms(getClassrooms().filter(r => r.id !== delModal.id))
         showToast('Room deleted.', 'info'); setDel({ open: false, id: null, name: '' }); load()
+    }
+
+    const viewSchedule = r => {
+        const data = getClassroomTimetable(r.name)
+        setSched({ open: true, room: r, data })
     }
 
     // Stats
@@ -154,6 +160,7 @@ export default function Classrooms() {
                                     {pct >= 80 ? '🔴 Large' : pct >= 50 ? '🟡 Medium' : '🟢 Small'} · {pct}% of max in view
                                 </div>
                                 <div style={{ display: 'flex', gap: '.5rem' }}>
+                                    <button style={btn('transparent', tagColor, tagColor)} onClick={() => viewSchedule(r)}>📅 View</button>
                                     <button style={btn('transparent', tagColor, tagColor)} onClick={() => openEdit(r)}>✏️ Edit</button>
                                     <button style={btn('#fde8e8', '#d62828', '#fde8e8')} onClick={() => setDel({ open: true, id: r.id, name: r.name })}>🗑️ Delete</button>
                                 </div>
@@ -205,6 +212,74 @@ export default function Classrooms() {
                 <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                     <button style={btn('transparent', '#4a4e6a', '#dce1ec')} onClick={() => setDel({ open: false, id: null, name: '' })}>Cancel</button>
                     <button style={btn('#d62828', '#fff', '#d62828')} onClick={handleDelete}>🗑️ Delete</button>
+                </div>
+            </Modal>
+
+            {/* Schedule Modal */}
+            <Modal open={schedModal.open} title={`Room Schedule — ${schedModal.room?.name}`} onClose={() => setSched({ open: false, room: null, data: null })} maxWidth={1000}>
+                {schedModal.data ? (
+                    <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid #dce1ec' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ background: '#eef1f8', padding: '.6rem', borderBottom: '2px solid #dce1ec', borderRight: '1px solid #dce1ec' }}>Time</th>
+                                    {schedModal.data.days.map(d => (
+                                        <th key={d} style={{ background: '#eef1f8', padding: '.6rem', borderBottom: '2px solid #dce1ec', borderRight: '1px solid #dce1ec', color: '#4361ee', fontWeight: 700 }}>{d}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(() => {
+                                    const allPeriods = [...schedModal.data.periods].sort((a, b) => {
+                                        const toMin = t => {
+                                            const part = t.split('-')[0] || '0:0'
+                                            let [h, m] = part.split(':').map(Number)
+                                            if (h < 9) h += 12
+                                            return h * 60 + m
+                                        }
+                                        return toMin(a) - toMin(b)
+                                    })
+                                    return allPeriods.map(p => (
+                                        <tr key={p} style={{ borderBottom: '1px solid #dce1ec' }}>
+                                            <td style={{ padding: '.6rem', fontWeight: 600, background: '#f8f9fa', borderRight: '1px solid #dce1ec', whiteSpace: 'nowrap' }}>{p}</td>
+                                            {schedModal.data.days.map(d => {
+                                                const slot = schedModal.data.grid[d]?.[p]
+                                                const isLab = slot?.type === 'lab'
+                                                return (
+                                                    <td key={d} style={{ padding: '.3rem', borderRight: '1px solid #dce1ec', height: 60, minWidth: 120 }}>
+                                                        {slot ? (
+                                                            <div style={{
+                                                                background: isLab ? '#ede9fe' : '#dbeafe',
+                                                                color: isLab ? '#5b21b6' : '#1e40af',
+                                                                padding: '.4rem .5rem', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${isLab ? '#5b21b630' : '#1e40af30'}`
+                                                            }}>
+                                                                <div style={{ fontWeight: 800 }}>{slot.subject}</div>
+                                                                <div style={{ fontSize: '.68rem', fontWeight: 600, opacity: 0.9 }}>
+                                                                    {slot.division}
+                                                                </div>
+                                                                {isLab && slot.batches ? (
+                                                                    <div style={{ fontSize: '.62rem', opacity: 0.8 }}>
+                                                                        {slot.batches.map(b => b.name).join(', ')}
+                                                                    </div>
+                                                                ) : null}
+                                                                <div style={{ fontSize: '.65rem', marginTop: '.1rem' }}>👨‍🏫 {slot.faculty || slot.batches?.map(b => b.faculty).join('/')}</div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ color: '#dce1ec', textAlign: 'center' }}>—</div>
+                                                        )}
+                                                    </td>
+                                                )
+                                            })}
+                                        </tr>
+                                    ))
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : <p>Generating room schedule...</p>}
+                <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+                    <button style={btn('transparent', '#4a4e6a', '#dce1ec')} onClick={() => setSched({ open: false, room: null, data: null })}>Close</button>
+                    <button style={{ ...btn('#4361ee', '#fff', '#4361ee'), marginLeft: '.5rem' }} onClick={() => window.print()}>🖨️ Print Room Schedule</button>
                 </div>
             </Modal>
 

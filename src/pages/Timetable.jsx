@@ -209,41 +209,93 @@ export default function Timetable() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {allPeriods.map(period => (
-                                    <tr key={period} style={{ borderBottom: '1px solid #dce1ec' }}>
-                                        <td style={{ padding: '.5rem .75rem', fontWeight: 600, fontSize: '.78rem', color: '#4a4e6a', background: '#eef1f8', borderRight: '1px solid #dce1ec', whiteSpace: 'nowrap' }}>{period}</td>
-                                        {ttData.days.map(day => {
-                                            const slot = ttData.grid[day]?.[period]
-                                            if (!slot) return <td key={day} style={{ padding: '.4rem .3rem', borderRight: '1px solid #dce1ec' }} />
-                                            if (slot.type === 'break') {
+                                {(() => {
+                                    const skippedCells = new Set();
+                                    return allPeriods.map((period, pIdx) => (
+                                        <tr key={period} style={{ borderBottom: '1px solid #dce1ec' }}>
+                                            <td style={{ padding: '.5rem .75rem', fontWeight: 600, fontSize: '.78rem', color: '#4a4e6a', background: '#eef1f8', borderRight: '1px solid #dce1ec', whiteSpace: 'nowrap' }}>{period}</td>
+                                            {ttData.days.map(day => {
+                                                const slotKey = `${day}-${period}`;
+                                                if (skippedCells.has(slotKey)) return null;
+
+                                                const slot = ttData.grid[day]?.[period]
+                                                if (!slot) return <td key={day} style={{ padding: '.4rem .3rem', borderRight: '1px solid #dce1ec' }} />
+                                                if (slot.type === 'break') {
+                                                    return (
+                                                        <td key={day} colSpan={ttData.days.length} style={{ textAlign: 'center', fontSize: '.78rem', color: '#8a8fa8', fontStyle: 'italic', background: '#f4f6fb', padding: '.4rem', borderRight: '1px solid #dce1ec' }}>
+                                                            🍽️ {slot.subject}
+                                                        </td>
+                                                    )
+                                                }
+
+                                                let rowSpan = 1;
+                                                const isLab = slot.type === 'lab';
+
+                                                if (isLab) {
+                                                    const nextPeriod = allPeriods[pIdx + 1];
+                                                    const nextSlot = ttData.grid[day]?.[nextPeriod];
+                                                    if (nextSlot && nextSlot.type === 'lab' && nextSlot.subject === slot.subject) {
+                                                        rowSpan = 2;
+                                                        skippedCells.add(`${day}-${nextPeriod}`);
+                                                    }
+                                                }
+
+                                                const colors = subjectColorMap[slot.subject] || '#eef1f8|#4a4e6a';
+                                                const [bg, fg] = colors.split('|');
+
                                                 return (
-                                                    <td key={day} colSpan={ttData.days.length} style={{ textAlign: 'center', fontSize: '.78rem', color: '#8a8fa8', fontStyle: 'italic', background: '#f4f6fb', padding: '.4rem', borderRight: '1px solid #dce1ec' }}>
-                                                        🍽️ {slot.subject}
-                                                    </td>
-                                                )
-                                            }
-                                            const colors = subjectColorMap[slot.subject] || '#eef1f8|#4a4e6a'
-                                            const [bg, fg] = colors.split('|')
-                                            const isLab = slot.type === 'lab'
-                                            return (
-                                                <td key={day} style={{ padding: '.4rem .3rem', borderRight: '1px solid #dce1ec', verticalAlign: 'middle' }}>
-                                                    <div onClick={() => openEdit(day, period)}
-                                                        style={{ padding: '.35rem .4rem', borderRadius: 6, background: bg, color: fg, fontSize: '.78rem', fontWeight: 500, cursor: 'pointer', minHeight: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', lineHeight: 1.3, border: isLab ? `1.5px solid ${fg}40` : 'none', transition: 'transform .12s' }}>
-                                                        <span>{slot.subject || <span style={{ color: '#8a8fa8', fontStyle: 'italic' }}>— empty —</span>}</span>
-                                                        <div style={{ marginTop: '.25rem', display: 'flex', gap: '.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                                            {slot.room && (
-                                                                <span style={{ fontSize: '.65rem', fontWeight: 600, opacity: .8, background: 'rgba(0,0,0,.08)', borderRadius: 4, padding: '.05rem .3rem' }}>📍 {slot.room}</span>
-                                                            )}
-                                                            {slot.faculty && (
-                                                                <span style={{ fontSize: '.65rem', fontWeight: 600, opacity: .8, background: 'rgba(0,0,0,.08)', borderRadius: 4, padding: '.05rem .3rem' }}>👨‍🏫 {slot.faculty}</span>
+                                                    <td key={day} rowSpan={rowSpan} style={{ padding: '.4rem .3rem', borderRight: '1px solid #dce1ec', verticalAlign: 'top' }}>
+                                                        <div onClick={() => openEdit(day, period)}
+                                                            style={{
+                                                                padding: '.35rem .4rem',
+                                                                borderRadius: 6,
+                                                                background: bg,
+                                                                color: fg,
+                                                                fontSize: '.72rem',
+                                                                fontWeight: 500,
+                                                                cursor: 'pointer',
+                                                                minHeight: rowSpan > 1 ? 110 : 52,
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                gap: '.4rem',
+                                                                border: isLab ? `1.5px solid ${fg}40` : 'none',
+                                                                transition: 'transform .12s'
+                                                            }}>
+
+                                                            {slot.batches ? (
+                                                                // Multi-batch Lab View
+                                                                <>
+                                                                    <div style={{ fontWeight: 700, borderBottom: `1px solid ${fg}20`, paddingBottom: '.2rem', marginBottom: '.1rem' }}>
+                                                                        {slot.subject} (LAB)
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+                                                                        {slot.batches.map(b => (
+                                                                            <div key={b.name} style={{ textAlign: 'left', lineHeight: 1.2, paddingLeft: '.2rem', borderLeft: `2px solid ${fg}40` }}>
+                                                                                <div style={{ fontWeight: 600 }}>{b.faculty || 'TBD'}</div>
+                                                                                <div style={{ opacity: 0.8, fontSize: '.65rem' }}>{ttData.divName}-{b.name}</div>
+                                                                                <div style={{ opacity: 0.8, fontSize: '.65rem', fontWeight: 600 }}>{b.room}</div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                // Theory View
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '.25rem' }}>
+                                                                    <div style={{ fontWeight: 700 }}>{slot.subject || <span style={{ color: '#8a8fa8', fontStyle: 'italic' }}>— empty —</span>}</div>
+                                                                    {slot.faculty && <div style={{ fontWeight: 600 }}>{slot.faculty}</div>}
+                                                                    <div style={{ display: 'flex', gap: '.3rem', flexWrap: 'wrap', justifyContent: 'center', opacity: 0.8, fontSize: '.65rem' }}>
+                                                                        {slot.isWholeClass && <span>{ttData.divName}</span>}
+                                                                        {slot.room && <span>{slot.room}</span>}
+                                                                    </div>
+                                                                </div>
                                                             )}
                                                         </div>
-                                                    </div>
-                                                </td>
-                                            )
-                                        })}
-                                    </tr>
-                                ))}
+                                                    </td>
+                                                )
+                                            })}
+                                        </tr>
+                                    ));
+                                })()}
                             </tbody>
                         </table>
                     </div>

@@ -5,8 +5,7 @@ import { getClassrooms, getDivisions } from '../data'
 const steps = [
     { step: 'STEP 0', icon: '🏫', title: 'Classroom Management', desc: 'Define room locations and max seating capacity. Add, edit or delete any classroom.', to: '/classrooms', color: '#4361ee', bg: '#eef0fd' },
     { step: 'STEP 1', icon: '👥', title: 'Class Divisions', desc: 'Create semester-wise CE divisions (e.g. 4CE-A…4CE-E) with student strength.', to: '/divisions', color: '#2b9348', bg: '#d8f3dc' },
-    { step: 'STEP 2', icon: '📐', title: 'Smart Allocation', desc: 'Auto-match divisions to rooms. See combine suggestions when strength exceeds capacity.', to: '/allocation', color: '#e76f51', bg: '#fde8e2' },
-    { step: 'STEP 3', icon: '📅', title: 'Timetable Generator', desc: 'Auto-generate weekly timetables with core subjects (sem 1–4) + electives (sem 5–8).', to: '/timetable', color: '#7209b7', bg: '#f3e8ff' },
+    { step: 'STEP 2', icon: '📅', title: 'Timetable Generator', desc: 'Auto-generate weekly timetables with core subjects (sem 1–4) + electives (sem 5–8).', to: '/timetable', color: '#7209b7', bg: '#f3e8ff' },
 ]
 
 const S = {

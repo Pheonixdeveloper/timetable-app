@@ -310,6 +310,15 @@ const ALL_SLOTS = [
     '3:50-4:35', '4:35-5:20',
 ];
 
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
 export function generateTimetable(sem, divName, divStrength = 60) {
     const { core, electives } = getSubjectsBySem(sem);
 
@@ -322,8 +331,15 @@ export function generateTimetable(sem, divName, divStrength = 60) {
     }
 
     // Categorise subjects
-    const labSubjects = subjects.filter(s => s.hasLab || s.labOnly);
-    const theorySubjects = subjects.filter(s => !s.labOnly).map(s => s.name);
+    let labSubjects = subjects.filter(s => s.hasLab || s.labOnly);
+    let theorySubjects = subjects.filter(s => !s.labOnly);
+
+    // Helper for display name
+    const getDispName = (s) => s.shortCode || s.name || s;
+
+    // Randomize subject order
+    labSubjects = shuffleArray(labSubjects);
+    theorySubjects = shuffleArray(theorySubjects);
 
     // ---- Room selection ----
     const allRooms = getClassrooms();
@@ -353,7 +369,7 @@ export function generateTimetable(sem, divName, divStrength = 60) {
     const allFaculty = getFaculty();
     const allUniqueSubs = getAllUniqueSubjects(); // Get normalized version of all subjects
 
-    const findFaculty = (subjName) => {
+    const findFaculties = (subjName, count = 1) => {
         // Clean subject name for matching (remove ' Lab' suffix if present)
         const baseName = subjName.replace(' Lab', '');
 
@@ -363,34 +379,57 @@ export function generateTimetable(sem, divName, divStrength = 60) {
         const codeToMatch = subObj ? subObj.shortCode : baseName;
 
         // 2. Match faculty who have either the name or shortCode assigned
-        const match = allFaculty.find(f =>
+        const matches = allFaculty.filter(f =>
             (f.assignedSubjects || []).some(s => s === nameToMatch || s === codeToMatch)
         );
-        return match ? match.code : '';
+
+        // Return codes for up to 'count' faculties
+        const codes = matches.map(m => m.code);
+        // If not enough faculty, pad with empty strings
+        while (codes.length < count) codes.push('');
+
+        return shuffleArray(codes).slice(0, count);
     };
 
+    const findFaculty = (subjName) => findFaculties(subjName, 1)[0] || '';
+
     // ---- Assign 2-hour lab blocks ----
-    let dayIdx = 0;
-    let blockIdx = 0;
+    let dayIdx = Math.floor(Math.random() * DAYS.length);
+    let blockIdx = Math.floor(Math.random() * LAB_BLOCKS.length);
+    const labDaysCount = {}; // { Monday: 1, Tuesday: 2, ... }
 
     labSubjects.forEach((subj, si) => {
-        const labRoom = labRooms.length ? labRooms[si % labRooms.length] : null;
-        const facCode = findFaculty(subj.name);
+        // We need 3 faculties for 3 batches
+        const facCodes = findFaculties(subj.name, 3);
         let assigned = false;
         let tries = 0;
 
         while (!assigned && tries < DAYS.length * LAB_BLOCKS.length) {
             const day = DAYS[dayIdx % DAYS.length];
             const block = LAB_BLOCKS[blockIdx % LAB_BLOCKS.length];
-            if (block.periods.every(p => grid[day][p].type === 'empty')) {
+
+            // Check if day already has 2 labs AND if periods are empty
+            const dayLabCount = labDaysCount[day] || 0;
+            const canFit = block.periods.every(p => grid[day][p].type === 'empty');
+
+            if (dayLabCount < 2 && canFit) {
+                // Pick 3 unique lab rooms for this slot
+                const shuffledLabs = shuffleArray(labRooms);
+                const assignedLabs = shuffledLabs.slice(0, 3);
+
                 block.periods.forEach(p => {
                     grid[day][p] = {
-                        subject: subj.name + ' Lab',
+                        subject: getDispName(subj),
                         type: 'lab',
-                        room: labRoom ? labRoom.name : '',
-                        faculty: facCode
+                        isLab: true, // Marker for UI
+                        batches: [
+                            { name: '1', room: assignedLabs[0]?.name || 'TBD', faculty: facCodes[0] },
+                            { name: '2', room: assignedLabs[1]?.name || 'TBD', faculty: facCodes[1] },
+                            { name: '3', room: assignedLabs[2]?.name || 'TBD', faculty: facCodes[2] },
+                        ]
                     };
                 });
+                labDaysCount[day] = (labDaysCount[day] || 0) + 1;
                 assigned = true;
             }
             blockIdx++;
@@ -400,13 +439,13 @@ export function generateTimetable(sem, divName, divStrength = 60) {
     });
 
     // ---- Assign theory to remaining empty slots ----
-    let tIdx = 0;
+    let tIdx = Math.floor(Math.random() * theorySubjects.length);
     const usedPerDay = {};
     DAYS.forEach(day => {
         usedPerDay[day] = new Set();
         ALL_SLOTS.forEach(slot => {
             if (grid[day][slot]?.type === 'lab') {
-                const base = grid[day][slot].subject.replace(' Lab', '');
+                const base = grid[day][slot].subject;
                 usedPerDay[day].add(base);
             }
         });
@@ -417,18 +456,20 @@ export function generateTimetable(sem, divName, divStrength = 60) {
         emptySlots.forEach(() => {
             let attempts = 0;
             while (attempts < theorySubjects.length) {
-                const sub = theorySubjects[tIdx % theorySubjects.length];
+                const subj = theorySubjects[tIdx % theorySubjects.length];
                 tIdx++; attempts++;
+                const subName = getDispName(subj);
                 const emptyP = THEORY_PERIODS.find(p => grid[day][p].type === 'empty');
                 if (!emptyP) break;
-                if (!usedPerDay[day].has(sub)) {
+                if (!usedPerDay[day].has(subName)) {
                     grid[day][emptyP] = {
-                        subject: sub,
+                        subject: subName,
                         type: 'theory',
                         room: theoryRoom ? theoryRoom.name : '',
-                        faculty: findFaculty(sub)
+                        faculty: findFaculty(subj.name || subj),
+                        isWholeClass: true // Marker for UI
                     };
-                    usedPerDay[day].add(sub);
+                    usedPerDay[day].add(subName);
                     break;
                 }
             }
@@ -438,6 +479,149 @@ export function generateTimetable(sem, divName, divStrength = 60) {
     return { days: DAYS, periods: ALL_SLOTS, grid, sem, divName, divStrength, theoryRoom: theoryRoom?.name || '' };
 }
 
-export { DAYS, ALL_SLOTS as PERIODS };
+/**
+ * Aggregates a personal timetable for a specific faculty member across all divisions.
+ */
+function getFacultyTimetable(facultyCode) {
+    if (!facultyCode) return null;
+    const allTT = getTimetables();
+    const resultGrid = {};
+
+    // Initialize empty grid
+    DAYS.forEach(d => {
+        resultGrid[d] = {};
+        ALL_SLOTS.forEach(p => { resultGrid[d][p] = null; });
+    });
+
+    Object.values(allTT).forEach(tt => {
+        Object.keys(tt.grid || {}).forEach(day => {
+            Object.keys(tt.grid[day] || {}).forEach(period => {
+                const slot = tt.grid[day][period];
+                if (!slot) return;
+
+                if (slot.type === 'theory' && slot.faculty === facultyCode) {
+                    resultGrid[day][period] = {
+                        subject: slot.subject,
+                        type: 'theory',
+                        division: tt.divName,
+                        room: slot.room
+                    };
+                } else if (slot.type === 'lab' && slot.batches) {
+                    const myBatch = slot.batches.find(b => b.faculty === facultyCode);
+                    if (myBatch) {
+                        resultGrid[day][period] = {
+                            subject: slot.subject,
+                            type: 'lab',
+                            division: tt.divName,
+                            batch: myBatch.name,
+                            room: myBatch.room
+                        };
+                    }
+                }
+            });
+        });
+    });
+
+    return { days: DAYS, periods: ALL_SLOTS, grid: resultGrid };
+}
+
+/**
+ * Aggregates a personal timetable for a specific classroom across all divisions.
+ */
+function getClassroomTimetable(roomName) {
+    if (!roomName) return null;
+    const allTT = getTimetables();
+    const resultGrid = {};
+
+    // Initialize empty grid
+    DAYS.forEach(d => {
+        resultGrid[d] = {};
+        ALL_SLOTS.forEach(p => { resultGrid[d][p] = null; });
+    });
+
+    Object.values(allTT).forEach(tt => {
+        Object.keys(tt.grid || {}).forEach(day => {
+            Object.keys(tt.grid[day] || {}).forEach(period => {
+                const slot = tt.grid[day][period];
+                if (!slot) return;
+
+                if (slot.type === 'theory' && slot.room === roomName) {
+                    resultGrid[day][period] = {
+                        subject: slot.subject,
+                        type: 'theory',
+                        division: tt.divName,
+                        faculty: slot.faculty
+                    };
+                } else if (slot.type === 'lab' && slot.batches) {
+                    const myBatches = slot.batches.filter(b => b.room === roomName);
+                    if (myBatches.length > 0) {
+                        resultGrid[day][period] = {
+                            subject: slot.subject,
+                            type: 'lab',
+                            division: tt.divName,
+                            batches: myBatches.map(b => ({ name: b.name, faculty: b.faculty }))
+                        };
+                    }
+                }
+            });
+        });
+    });
+
+    return { days: DAYS, periods: ALL_SLOTS, grid: resultGrid };
+}
+
+/**
+ * Aggregates a personal timetable for a specific subject across all divisions.
+ */
+function getSubjectTimetable(subjectId) {
+    if (!subjectId) return null;
+    const allTT = getTimetables();
+    const allSubs = getAllUniqueSubjects();
+    const target = allSubs.find(s => (s.code || s.name) === subjectId) || { name: subjectId, shortCode: subjectId, code: subjectId };
+
+    const resultGrid = {};
+
+    // Initialize empty grid
+    DAYS.forEach(d => {
+        resultGrid[d] = {};
+        ALL_SLOTS.forEach(p => { resultGrid[d][p] = null; });
+    });
+
+    const isMatch = (val) => {
+        if (!val) return false;
+        const s = typeof val === 'object' ? (val.shortCode || val.code || val.name) : val;
+        return s === target.shortCode || s === target.name || s === target.code;
+    };
+
+    Object.values(allTT).forEach(tt => {
+        Object.keys(tt.grid || {}).forEach(day => {
+            Object.keys(tt.grid[day] || {}).forEach(period => {
+                const slot = tt.grid[day][period];
+                if (!slot) return;
+
+                if (slot.type === 'theory' && isMatch(slot.subject)) {
+                    resultGrid[day][period] = {
+                        type: 'theory',
+                        division: tt.divName,
+                        faculty: slot.faculty,
+                        room: slot.room
+                    };
+                } else if (slot.type === 'lab' && isMatch(slot.subject)) {
+                    if (slot.batches) {
+                        resultGrid[day][period] = {
+                            type: 'lab',
+                            division: tt.divName,
+                            batches: slot.batches.map(b => ({ name: b.name, faculty: b.faculty, room: b.room }))
+                        };
+                    }
+                }
+            });
+        });
+    });
+
+    return { days: DAYS, periods: ALL_SLOTS, grid: resultGrid };
+}
+
+export { DAYS, ALL_SLOTS as PERIODS, getFacultyTimetable, getClassroomTimetable, getSubjectTimetable };
 
 
