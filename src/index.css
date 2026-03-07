@@ -98,6 +98,51 @@ a {
     background: var(--primary);
 }
 
+/* ============================================================
+   Responsiveness
+   ============================================================ */
+
+/* Mobile & Tablet General */
+@media (max-width: 768px) {
+    :root {
+        --nav-h: 56px;
+    }
+
+    .nav-label {
+        display: none;
+    }
+
+    .page-wrapper {
+        padding: 1rem !important;
+    }
+
+    .navbar {
+        padding: 0 1rem !important;
+    }
+}
+
+/* Cards & Grid adjustments */
+@media (max-width: 640px) {
+    h1 {
+        font-size: 1.4rem !important;
+    }
+
+    p {
+        font-size: .85rem !important;
+    }
+
+    .stat-card {
+        padding: 1rem !important;
+    }
+}
+
+/* Helper for scrollable tables */
+.table-container {
+    overflow-x: auto;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
 @media print {
 
     nav,

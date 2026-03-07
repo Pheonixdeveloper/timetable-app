@@ -104,7 +104,7 @@ export default function Allocation() {
     }
 
     return (
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
+        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }} className="page-wrapper">
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
                 <div>
@@ -131,7 +131,7 @@ export default function Allocation() {
 
             {/* Stats */}
             {ran && divisions.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
                     {[
                         { val: divisions.length, key: 'Total Divisions', color: '#4361ee' },
                         { val: totalStudents, key: 'Total Students', color: '#4361ee' },

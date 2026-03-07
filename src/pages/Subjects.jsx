@@ -56,7 +56,7 @@ export default function Subjects() {
     const inp = { width: '100%', padding: '.6rem .85rem', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '.92rem', fontFamily: 'inherit', color: 'var(--text)', background: 'var(--surface2)', outline: 'none' }
 
     return (
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem 4rem' }} className="page-wrapper">
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.65rem', fontWeight: 700 }}>Subject-wise Timetables</h1>
@@ -72,13 +72,14 @@ export default function Subjects() {
                 </div>
             </div>
 
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+            <div className="table-container" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ background: 'var(--surface2)', textAlign: 'left', borderBottom: '2px solid var(--border)' }}>
                             <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Subject Name</th>
                             <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Short Code</th>
                             <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Admin Code</th>
+                            <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Credits</th>
                             <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Action</th>
                         </tr>
                     </thead>
@@ -93,6 +94,9 @@ export default function Subjects() {
                                 </td>
                                 <td style={{ padding: '.8rem 1rem', color: 'var(--text-2)', fontSize: '.85rem' }}>{s.code || '—'}</td>
                                 <td style={{ padding: '.8rem 1rem' }}>
+                                    <span style={{ fontWeight: 700, color: 'var(--text)' }}>{s.credits || 0}</span>
+                                </td>
+                                <td style={{ padding: '.8rem 1rem' }}>
                                     <button style={btn('transparent', 'var(--primary)', 'var(--primary)')} onClick={() => viewSchedule(s)}>📅 View Schedule</button>
                                 </td>
                             </tr>
@@ -104,7 +108,7 @@ export default function Subjects() {
             {/* Schedule Modal */}
             <Modal open={schedModal.open} title={`Subject Schedule — ${schedModal.subject?.name}`} onClose={() => setSched({ open: false, subject: null, data: null })} maxWidth={1000}>
                 {schedModal.data ? (
-                    <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
+                    <div className="table-container" style={{ borderRadius: 12, border: '1px solid var(--border)' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
                             <thead>
                                 <tr>

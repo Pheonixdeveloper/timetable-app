@@ -136,7 +136,7 @@ export default function Faculty() {
     const inp = { width: '100%', padding: '.6rem .85rem', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '.92rem', fontFamily: 'inherit', color: 'var(--text)', background: 'var(--surface2)', outline: 'none' }
 
     return (
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
+        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }} className="page-wrapper">
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
@@ -153,7 +153,7 @@ export default function Faculty() {
             </div>
 
             {/* Summary stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
                 {[
                     { label: 'Total Faculty', val: faculty.length, color: 'var(--primary)' },
                     { label: 'Professors', val: roleCounts['Professor'] || 0, color: 'var(--primary)' },
@@ -161,7 +161,7 @@ export default function Faculty() {
                     { label: 'Teaching Asst', val: roleCounts['TA'] || 0, color: 'var(--warning)' },
                     { label: 'Visiting', val: roleCounts['Visiting'] || 0, color: 'var(--accent, #7209b7)' },
                 ].map((s, i) => (
-                    <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1rem 1.25rem', transition: 'background .2s, border-color .2s' }}>
+                    <div key={i} className="stat-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1rem 1.25rem', transition: 'background .2s, border-color .2s' }}>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{s.val}</div>
                         <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: '.1rem' }}>{s.label}</div>
                     </div>
@@ -195,7 +195,7 @@ export default function Faculty() {
                     <p>No faculty found matching your search.</p>
                 </div>
             ) : (
-                <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+                <div className="table-container" style={{ borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.9rem' }}>
                         <thead>
                             <tr>
@@ -326,7 +326,7 @@ export default function Faculty() {
             {/* Schedule Modal */}
             <Modal open={schedModal.open} title={`Weekly Schedule — ${schedModal.faculty?.name}`} onClose={() => setSched({ open: false, faculty: null, data: null })} maxWidth={1000}>
                 {schedModal.data ? (
-                    <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
+                    <div className="table-container" style={{ borderRadius: 12, border: '1px solid var(--border)' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
                             <thead>
                                 <tr>

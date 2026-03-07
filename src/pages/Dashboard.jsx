@@ -46,7 +46,7 @@ export default function Dashboard() {
     }, [])
 
     return (
-        <div style={S.wrap}>
+        <div style={S.wrap} className="page-wrapper">
             {/* Hero */}
             <div style={S.hero}>
                 <div style={S.h1}>📅 CE Timetable System</div>
@@ -59,14 +59,14 @@ export default function Dashboard() {
             </div>
 
             {/* Stats */}
-            <div style={S.statsGrid}>
+            <div style={{ ...S.statsGrid, gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))' }}>
                 {[
                     { icon: '🏫', val: stats.rooms, label: 'Classroom Locations' },
                     { icon: '👥', val: stats.divs, label: 'Total Divisions' },
                     { icon: '📚', val: stats.sems, label: 'Semesters Configured' },
                     { icon: '🎓', val: 'CE', label: 'Branch' },
                 ].map((st, i) => (
-                    <div key={i} style={S.statCard}>
+                    <div key={i} style={S.statCard} className="stat-card">
                         <div style={S.statIcon}>{st.icon}</div>
                         <div><div style={S.statVal}>{st.val}</div><div style={S.statLabel}>{st.label}</div></div>
                     </div>

@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react'
 import {
     getDivisionsBySem, getSubjectsBySem, getTimetables, setTimetables,
     generateTimetable, getSubjects, setSubjects, uid,
-    subjectName, subjectDisplay, subjectFullCode
+    subjectName, subjectDisplay, subjectFullCode,
+    getClassrooms, getFaculty
 } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
@@ -25,9 +26,11 @@ export default function Timetable() {
     })
     const [toast, setToast] = useState(null)
     const [editSlot, setEditSlot] = useState(null)
-    const [slotForm, setSlotForm] = useState({ subject: '', type: 'theory' })
+    const [slotForm, setSlotForm] = useState({ subject: '', type: 'theory', room: '', faculty: '', batches: [] })
+    const [draggedSlot, setDraggedSlot] = useState(null)
     const [subModal, setSubModal] = useState(false)
     const [subForm, setSubForm] = useState([])
+    const [customDate, setCustomDate] = useState('')
 
     const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800) }
 
@@ -58,9 +61,16 @@ export default function Timetable() {
         const d = divs.find(x => x.id === divId)
         if (!d) { showToast('Select a division first.', 'error'); return }
         const tt = generateTimetable(sem, d.name, d.strength, d.shift)
+
+        // Add timestamp and effective date
+        const now = new Date();
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        tt.generatedAt = `${days[now.getDay()]}, ${now.toLocaleString()}`;
+        tt.effectiveDate = customDate;
+
         updateTtData(tt)
         showToast('Timetable preview generated! Remember to save.', 'info')
-    }, [sem, divId, divs])
+    }, [sem, divId, divs, customDate])
 
     const loadSaved = useCallback(() => {
         const d = divs.find(x => x.id === divId)
@@ -74,7 +84,7 @@ export default function Timetable() {
     const openSubjectEditor = () => {
         const s = getSubjectsBySem(sem)
         // For editor, flatten to name strings for editing simplicity
-        setSubForm(s.core.map(c => ({ id: uid(), name: sName(c), code: subjectFullCode(c) || '' })))
+        setSubForm(s.core.map(c => ({ id: uid(), name: sName(c), code: subjectFullCode(c) || '', credits: c.credits || 0 })))
         setSubModal(true)
     }
 
@@ -82,7 +92,7 @@ export default function Timetable() {
         const all = getSubjects()
         const existing = all[sem] || { core: [], electives: [] }
         // Save back — if code present keep as object else as string
-        existing.core = subForm.map(s => s.code ? { code: s.code, shortCode: s.code.split(/[()]/).pop() || s.code, name: s.name } : s.name).filter(x => typeof x === 'string' ? x : x.name)
+        existing.core = subForm.map(s => s.code ? { code: s.code, shortCode: s.code.split(/[()]/).pop() || s.code, name: s.name, credits: Number(s.credits) || 0 } : s.name).filter(x => typeof x === 'string' ? x : x.name)
         all[sem] = existing; setSubjects(all)
         setSubModal(false); showToast('Subjects updated.', 'success')
     }
@@ -118,7 +128,19 @@ export default function Timetable() {
         if (!editSlot || !ttData) return
         const updated = { ...ttData, grid: { ...ttData.grid } }
         updated.grid[editSlot.day] = { ...updated.grid[editSlot.day] }
-        updated.grid[editSlot.day][editSlot.period] = { subject: slotForm.subject, type: slotForm.type }
+
+        let newSlotData = { ...updated.grid[editSlot.day][editSlot.period], subject: slotForm.subject, type: slotForm.type }
+        if (slotForm.type === 'theory') {
+            newSlotData.room = slotForm.room
+            newSlotData.faculty = slotForm.faculty
+        } else if (slotForm.type === 'lab') {
+            newSlotData.batches = slotForm.batches
+        } else if (slotForm.type === 'empty') {
+            newSlotData.room = ''
+            newSlotData.faculty = ''
+            newSlotData.batches = undefined
+        }
+        updated.grid[editSlot.day][editSlot.period] = newSlotData
         updateTtData(updated)
         setEditSlot(null); showToast('Slot updated in preview.', 'info')
     }
@@ -136,11 +158,50 @@ export default function Timetable() {
         if (!ttData) return
         const slot = ttData.grid[day]?.[period]
         if (slot?.type === 'break') return
-        setSlotForm({ subject: slot?.subject || '', type: slot?.type || 'theory' })
+        setSlotForm({
+            subject: slot?.subject || '',
+            type: slot?.type || 'theory',
+            room: slot?.room || '',
+            faculty: slot?.faculty || '',
+            batches: slot?.batches ? JSON.parse(JSON.stringify(slot.batches)) : []
+        })
         setEditSlot({ day, period })
     }
 
+    const handleDragStart = (e, day, period) => {
+        setDraggedSlot({ day, period });
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e, targetDay, targetPeriod) => {
+        e.preventDefault();
+        if (!draggedSlot) return;
+        const { day: sourceDay, period: sourcePeriod } = draggedSlot;
+        if (sourceDay === targetDay && sourcePeriod === targetPeriod) {
+            setDraggedSlot(null);
+            return;
+        }
+
+        const updated = { ...ttData, grid: { ...ttData.grid } };
+        updated.grid[sourceDay] = { ...updated.grid[sourceDay] };
+        updated.grid[targetDay] = { ...updated.grid[targetDay] };
+
+        const temp = updated.grid[sourceDay][sourcePeriod];
+        updated.grid[sourceDay][sourcePeriod] = updated.grid[targetDay][targetPeriod];
+        updated.grid[targetDay][targetPeriod] = temp;
+
+        updateTtData(updated);
+        setDraggedSlot(null);
+        showToast('Slots swapped.', 'info');
+    };
+
     const subjects = getSubjectsBySem(sem)
+    const classroomsList = getClassrooms()
+    const facultyList = getFaculty()
     // Flat subject name list for slot dropdown in edit modal
     const allSubjectNames = [
         ...subjects.core.map(sName),
@@ -149,8 +210,12 @@ export default function Timetable() {
 
     const inp = { width: '100%', padding: '.6rem .85rem', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '.92rem', fontFamily: 'inherit', color: 'var(--text)', background: 'var(--surface2)', outline: 'none', transition: 'var(--transition)' }
 
+    const btn = (bg, color, border) => ({
+        display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: `2px solid ${border}`, background: bg, color: color, fontFamily: 'inherit'
+    })
+
     return (
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
+        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }} className="page-wrapper">
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
@@ -180,13 +245,17 @@ export default function Timetable() {
                         {divs.map(d => <option key={d.id} value={d.id}>{d.name} ({d.strength} students)</option>)}
                     </select>
                 </div>
-                <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }} onClick={generate}>⚡ Generate</button>
-                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit' }} onClick={loadSaved}>📂 Load Saved</button>
-                    {ttData && (
-                        <button style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--success)', background: 'var(--success)', color: '#fff', fontFamily: 'inherit' }} onClick={saveTimetable}>💾 Save Timetable</button>
-                    )}
+                <div style={{ flex: 1, minWidth: 150 }}>
+                    <label style={{ fontSize: '.85rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '.3rem' }}>Effective Date</label>
+                    <input type="date" style={inp} value={customDate} onChange={e => setCustomDate(e.target.value)} />
                 </div>
+                <div style={{ display: 'flex', gap: '.5rem' }}>
+                    <button style={btn('var(--primary)', '#fff', 'var(--primary)')} onClick={generate}>⚡ Generate</button>
+                    <button style={btn('transparent', 'var(--text-2)', 'var(--border)')} onClick={loadSaved}>📂 Load Saved</button>
+                </div>
+                {ttData && (
+                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--success)', background: 'var(--success)', color: '#fff', fontFamily: 'inherit' }} onClick={saveTimetable}>💾 Save Timetable</button>
+                )}
             </div>
 
             {/* Subject preview — shows course code chips for object-type subjects */}
@@ -230,7 +299,7 @@ export default function Timetable() {
                     <div style={{ fontSize: '.85rem', color: 'var(--text-2)', marginBottom: '.75rem' }}>
                         📌 <strong>{ttData.divName}</strong> · Semester {ttData.sem} · Click any slot to edit
                     </div>
-                    <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+                    <div className="table-container" style={{ borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                             <thead>
                                 <tr>
@@ -276,9 +345,13 @@ export default function Timetable() {
                                                 const [bg, fg] = colors.split('|');
 
                                                 return (
-                                                    <td key={day} rowSpan={rowSpan} style={{ padding: '.4rem .3rem', borderRight: '1px solid var(--border)', verticalAlign: 'top' }}>
+                                                    <td key={day} rowSpan={rowSpan} style={{ padding: '.4rem .3rem', borderRight: '1px solid var(--border)', verticalAlign: 'top' }}
+                                                        onDragOver={handleDragOver}
+                                                        onDrop={(e) => handleDrop(e, day, period)}>
                                                         <div onClick={() => openEdit(day, period)}
                                                             className="slot-card"
+                                                            draggable={slot.type !== 'break'}
+                                                            onDragStart={(e) => handleDragStart(e, day, period)}
                                                             style={{
                                                                 padding: '.35rem .4rem',
                                                                 borderRadius: 6,
@@ -332,12 +405,24 @@ export default function Timetable() {
                         </table>
                     </div>
 
-                    {/* Color legend */}
-                    <div style={{ marginTop: '1.25rem', display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-                        {Object.entries(subjectColorMap).map(([subj, colors]) => {
-                            const [bg, fg] = colors.split('|')
-                            return <span key={subj} style={{ background: bg, color: fg, padding: '.25rem .65rem', borderRadius: 99, fontSize: '.78rem', fontWeight: 500 }}>{subj}</span>
-                        })}
+                    {/* Color legend & Timestamp */}
+                    <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                            {Object.entries(subjectColorMap).map(([subj, colors]) => {
+                                const [bg, fg] = colors.split('|')
+                                return <span key={subj} style={{ background: bg, color: fg, padding: '.25rem .65rem', borderRadius: 99, fontSize: '.78rem', fontWeight: 500 }}>{subj}</span>
+                            })}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            {ttData.effectiveDate && (
+                                <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '.15rem' }}>
+                                    📅 Effective from: {new Date(ttData.effectiveDate).toLocaleDateString(undefined, { dateStyle: 'long' })}
+                                </div>
+                            )}
+                            <div style={{ fontSize: '.7rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
+                                🕒 Generated on {ttData.generatedAt}
+                            </div>
+                        </div>
                     </div>
                 </>
             )}
@@ -362,6 +447,52 @@ export default function Timetable() {
                             <option value="empty">Empty</option>
                         </select>
                     </div>
+                    {slotForm.type === 'theory' && (
+                        <>
+                            <div style={{ marginBottom: '1.1rem' }}>
+                                <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Classroom</label>
+                                <select style={inp} value={slotForm.room} onChange={e => setSlotForm(f => ({ ...f, room: e.target.value }))}>
+                                    <option value="">— Select Room —</option>
+                                    {classroomsList.map(r => <option key={r.id} value={r.name}>{r.name} (cap: {r.capacity})</option>)}
+                                </select>
+                            </div>
+                            <div style={{ marginBottom: '1.1rem' }}>
+                                <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Faculty</label>
+                                <select style={inp} value={slotForm.faculty} onChange={e => setSlotForm(f => ({ ...f, faculty: e.target.value }))}>
+                                    <option value="">— Select Faculty —</option>
+                                    <option value="TBD">TBD</option>
+                                    {facultyList.map(f => <option key={f.id} value={f.code}>{f.name} ({f.code})</option>)}
+                                </select>
+                            </div>
+                        </>
+                    )}
+                    {slotForm.type === 'lab' && slotForm.batches.length > 0 && (
+                        <div style={{ marginBottom: '1.1rem' }}>
+                            <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Lab Batches</label>
+                            {slotForm.batches.map((b, i) => (
+                                <div key={i} style={{ background: 'var(--surface2)', padding: '.75rem', borderRadius: 8, marginBottom: '.5rem' }}>
+                                    <div style={{ fontSize: '.8rem', fontWeight: 600, marginBottom: '.4rem' }}>Batch {b.name}</div>
+                                    <select style={{ ...inp, marginBottom: '.4rem', padding: '.4rem .6rem', fontSize: '.8rem' }} value={b.room} onChange={e => {
+                                        const newBatches = [...slotForm.batches];
+                                        newBatches[i].room = e.target.value;
+                                        setSlotForm(f => ({ ...f, batches: newBatches }));
+                                    }}>
+                                        <option value="">— Room —</option>
+                                        {classroomsList.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                                    </select>
+                                    <select style={{ ...inp, padding: '.4rem .6rem', fontSize: '.8rem' }} value={b.faculty} onChange={e => {
+                                        const newBatches = [...slotForm.batches];
+                                        newBatches[i].faculty = e.target.value;
+                                        setSlotForm(f => ({ ...f, batches: newBatches }));
+                                    }}>
+                                        <option value="">— Faculty —</option>
+                                        <option value="TBD">TBD</option>
+                                        {facultyList.map(f => <option key={f.id} value={f.code}>{f.name} ({f.code})</option>)}
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                         <button type="button" style={{ display: 'inline-flex', alignItems: 'center', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit' }} onClick={() => setEditSlot(null)}>Cancel</button>
                         <button type="submit" style={{ display: 'inline-flex', alignItems: 'center', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }}>💾 Save Slot</button>
@@ -369,15 +500,22 @@ export default function Timetable() {
                 </form>
             </Modal>
 
-            {/* Edit Subjects Modal */}
             <Modal open={subModal} title={`Edit Core Subjects — Semester ${sem}`} onClose={() => setSubModal(false)}>
                 <div style={{ marginBottom: '1rem', fontSize: '.85rem', color: 'var(--text-2)' }}>Edit subjects for Sem {sem}. Changes persist and affect timetable generation.</div>
+                <div key="header" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 50px auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>
+                    <div>Code</div>
+                    <div>Name</div>
+                    <div>Cr</div>
+                    <div></div>
+                </div>
                 {subForm.map((s, i) => (
-                    <div key={s.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center' }}>
+                    <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 50px auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center' }}>
                         <input style={{ ...inp, width: 90, fontSize: '.8rem', padding: '.45rem .6rem' }} placeholder="Code" value={s.code}
                             onChange={e => setSubForm(sf => sf.map((x, j) => j === i ? { ...x, code: e.target.value } : x))} />
                         <input style={{ ...inp, fontSize: '.88rem' }} placeholder="Subject name" value={s.name}
                             onChange={e => setSubForm(sf => sf.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                        <input style={{ ...inp, width: 50, fontSize: '.8rem', padding: '.45rem .6rem' }} type="number" placeholder="Cr" value={s.credits}
+                            onChange={e => setSubForm(sf => sf.map((x, j) => j === i ? { ...x, credits: e.target.value } : x))} />
                         <button style={{ display: 'inline-flex', alignItems: 'center', padding: '.4rem .6rem', borderRadius: 8, border: '2px solid var(--danger-l)', background: 'var(--danger-l)', color: 'var(--danger)', cursor: 'pointer', fontFamily: 'inherit' }}
                             onClick={() => setSubForm(sf => sf.filter((_, j) => j !== i))}>🗑️</button>
                     </div>

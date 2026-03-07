@@ -4,9 +4,9 @@ const links = [
     { to: '/', icon: '🏠', label: 'Dashboard' },
     { to: '/classrooms', icon: '🏫', label: 'Classrooms' },
     { to: '/divisions', icon: '👥', label: 'Divisions' },
-    { to: '/timetable', icon: '📅', label: 'Timetable' },
     { to: '/faculty', icon: '👨‍🏫', label: 'Faculty' },
     { to: '/subjects', icon: '📚', label: 'Subjects' },
+    { to: '/timetable', icon: '📅', label: 'Timetable' },
 ]
 
 const S = {
@@ -19,7 +19,15 @@ const S = {
         width: 36, height: 36, borderRadius: 8, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center',
         justifyContent: 'center', fontSize: '1rem', fontWeight: 800
     },
-    links: { display: 'flex', gap: '.25rem', alignItems: 'center' },
+    links: {
+        display: 'flex',
+        gap: '.25rem',
+        alignItems: 'center',
+        overflowX: 'auto',
+        msOverflowStyle: 'none',
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch'
+    },
     link: {
         display: 'flex', alignItems: 'center', gap: '.4rem', padding: '.45rem .85rem', borderRadius: 10,
         fontSize: '.88rem', fontWeight: 500, color: 'var(--text-2)', transition: 'all .18s', textDecoration: 'none'
@@ -29,7 +37,7 @@ const S = {
 
 export default function Navbar({ theme, toggleTheme }) {
     return (
-        <nav style={S.nav}>
+        <nav style={S.nav} className="navbar">
             <NavLink to="/" style={S.brand}>
                 <div style={S.logoIcon}>CE</div>
                 CE Timetable
