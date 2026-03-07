@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getClassrooms, setClassrooms, uid, getClassroomTimetable, PERIODS, updateTimetableSlotGlobal } from '../data'
+import { getClassrooms, setClassrooms, uid, getClassroomTimetable, PERIODS, updateTimetableSlotGlobal, getDepartments } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
 
@@ -21,30 +21,51 @@ export default function Classrooms() {
     const [modal, setModal] = useState({ open: false, editing: null })
     const [delModal, setDel] = useState({ open: false, id: null, name: '' })
     const [schedModal, setSched] = useState({ open: false, room: null, data: null })
-    const [form, setForm] = useState({ name: '', capacity: '', type: 'classroom' })
+    const [form, setForm] = useState({ name: '', capacity: '', type: 'classroom', department: '' })
     const [editSlot, setEditSlot] = useState(null)
+    const [printJob, setPrintJob] = useState(null)
+
+    useEffect(() => {
+        if (printJob) {
+            const timer = setTimeout(() => {
+                window.print()
+                setTimeout(() => setPrintJob(null), 100)
+            }, 300)
+            return () => clearTimeout(timer)
+        }
+    }, [printJob])
 
     const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800) }
     const load = useCallback(() => setRooms(getClassrooms()), [])
     useEffect(() => load(), [load])
 
-    const openAdd = () => { setForm({ name: '', capacity: '', type: 'classroom' }); setModal({ open: true, editing: null }) }
-    const openEdit = r => { setForm({ name: r.name, capacity: r.capacity, type: r.type || 'classroom' }); setModal({ open: true, editing: r }) }
+    const openAdd = () => {
+        const depts = getDepartments()
+        setForm({ name: '', capacity: '', type: 'classroom', department: depts[0] || '' });
+        setModal({ open: true, editing: null })
+    }
+    const openEdit = r => {
+        const depts = getDepartments()
+        setForm({ name: r.name, capacity: r.capacity, type: r.type || 'classroom', department: r.department || depts[0] || '' });
+        setModal({ open: true, editing: r })
+    }
     const closeModal = () => setModal({ open: false, editing: null })
 
     const handleSave = e => {
         e.preventDefault()
         const name = form.name.trim().toUpperCase()
         const capacity = parseInt(form.capacity, 10)
+        const department = form.department
         if (!name) return showToast('Room name required.', 'error')
+        if (!department) return showToast('Department is required.', 'error')
         if (!capacity || capacity < 1) return showToast('Enter valid capacity.', 'error')
         const all = getClassrooms()
         if (modal.editing) {
-            setClassrooms(all.map(r => r.id === modal.editing.id ? { ...r, name, capacity, type: form.type } : r))
+            setClassrooms(all.map(r => r.id === modal.editing.id ? { ...r, name, capacity, type: form.type, department } : r))
             showToast(`${name} updated.`, 'success')
         } else {
             if (all.find(r => r.name.toLowerCase() === name.toLowerCase())) return showToast('Room already exists.', 'error')
-            setClassrooms([...all, { id: uid(), name, capacity, type: form.type }])
+            setClassrooms([...all, { id: uid(), name, capacity, type: form.type, department }])
             showToast(`${name} added.`, 'success')
         }
         load(); closeModal()
@@ -94,6 +115,156 @@ export default function Classrooms() {
 
     const inp = { width: '100%', padding: '.6rem .85rem', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '.92rem', fontFamily: 'inherit', color: 'var(--text)', background: 'var(--surface2)', outline: 'none' }
 
+    // --- SHARED TIMETABLE RENDERER FOR PRINT & UI ---
+    const renderTimetableTable = (roomInfo, schedData, onEdit = null) => {
+        if (!schedData) return <p>No data...</p>
+        const allPeriods = [...schedData.periods].sort((a, b) => {
+            const toMin = t => {
+                const part = t.split('-')[0] || '0:0'
+                let [h, m] = part.split(':').map(Number)
+                if (h < 9) h += 12
+                return h * 60 + m
+            }
+            return toMin(a) - toMin(b)
+        })
+
+        return (
+            <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)', background: '#fff' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)' }}>Time</th>
+                            {schedData.days.map(d => (
+                                <th key={d} style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)', color: 'var(--primary)', fontWeight: 700 }}>{d}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {allPeriods.map(p => (
+                            <tr key={p} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '.6rem', fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{p}</td>
+                                {schedData.days.map(d => {
+                                    const slot = schedData.grid[d]?.[p]
+                                    const isLab = slot?.type === 'lab'
+                                    return (
+                                        <td key={d} style={{ padding: '.3rem', borderRight: '1px solid var(--border)', height: 60, minWidth: 120 }}>
+                                            {slot ? (
+                                                <div
+                                                    onClick={() => onEdit ? onEdit({ ...slot, day: d, period: p, room: roomInfo.name, faculty: slot.faculty || slot.batches?.[0]?.faculty, batch: slot.batches?.[0]?.name }) : null}
+                                                    className={onEdit ? '' : 'slot-card-print'}
+                                                    style={{
+                                                        background: isLab ? 'var(--info-l)' : 'var(--primary-l)',
+                                                        color: isLab ? 'var(--info)' : 'var(--primary)',
+                                                        padding: '.4rem .5rem', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                                                        border: onEdit ? `1px solid ${isLab ? 'var(--info)' : 'var(--primary)'}` : 'none',
+                                                        cursor: onEdit ? 'pointer' : 'default', transition: 'transform 0.1s'
+                                                    }}
+                                                    onMouseEnter={e => onEdit && (e.currentTarget.style.transform = 'scale(0.98)')}
+                                                    onMouseLeave={e => onEdit && (e.currentTarget.style.transform = 'none')}
+                                                >
+                                                    <div style={{ fontWeight: 800 }}>{slot.subject}</div>
+                                                    <div style={{ fontSize: '.68rem', fontWeight: 600, opacity: 0.9 }}>
+                                                        {slot.division}
+                                                    </div>
+                                                    {isLab && slot.batches ? (
+                                                        <div style={{ fontSize: '.62rem', opacity: 0.8 }}>
+                                                            {slot.batches.map(b => b.name).join(', ')}
+                                                        </div>
+                                                    ) : null}
+                                                    <div style={{ fontSize: '.65rem', marginTop: '.1rem' }}>👨‍🏫 {slot.faculty || slot.batches?.map(b => b.faculty).join('/')}</div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ color: 'var(--border)', textAlign: 'center' }}>—</div>
+                                            )}
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )
+    }
+
+    // --- PRINT RENDER MODE ---
+    if (printJob) {
+        return (
+            <div style={{ background: '#fff', minHeight: '100vh', width: '100%', padding: '0px' }}>
+                {(printJob.mode === 'single' ? [printJob.data] : printJob.data).map((room, idx, arr) => {
+                    const schedData = getClassroomTimetable(room.name)
+
+                    const counts = {}
+                    let total = 0
+                    if (schedData) {
+                        schedData.periods.forEach(p => {
+                            schedData.days.forEach(d => {
+                                const slot = schedData.grid[d]?.[p]
+                                if (slot && slot.type !== 'break' && slot.type !== 'empty') {
+                                    counts[slot.subject] = (counts[slot.subject] || 0) + 1
+                                    total++
+                                }
+                            })
+                        })
+                    }
+
+                    return (
+                        <div key={room.id} className="print-container" style={{ margin: '0 auto', padding: '10px 20px', pageBreakAfter: idx === arr.length - 1 ? 'auto' : 'always' }}>
+                            <div className="print-header show-print">
+                                <img src="/logo.png" alt="Ganpat University" style={{ height: 65, objectFit: 'contain' }} />
+                                <div className="print-header-center">
+                                    <div style={{ fontSize: '13px', fontWeight: 'bold' }}>Faculty of Engineering &amp; Technology</div>
+                                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>Computer Engineering/Information Technology (A.Y. 2025-2026 Even Sem)</div>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '3px' }}>
+                                        Time table w.e.f. ____________
+                                    </div>
+                                    <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '2px', letterSpacing: '0.05em' }}>
+                                        {room.name}
+                                    </div>
+                                </div>
+                                <div style={{ width: 240 }}></div>
+                            </div>
+
+                            <div className="print-layout">
+                                <div className="print-main-table">
+                                    {renderTimetableTable(room, schedData, null)}
+                                </div>
+                                <div className="print-summary-table-container">
+                                    <table className="print-summary-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Subject</th>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(counts).map(([sub, count]) => (
+                                                <tr key={sub}>
+                                                    <td>{sub}</td>
+                                                    <td style={{ textAlign: 'center' }}>{count}</td>
+                                                </tr>
+                                            ))}
+                                            <tr>
+                                                <td style={{ fontWeight: 'bold' }}>Total</td>
+                                                <td style={{ fontWeight: 'bold', textAlign: 'center' }}>{total}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="print-footer">
+                                <div className="print-footer-sig">Sign of TimeTable Coordinator</div>
+                                <div className="print-footer-sig">Sign of HOD</div>
+                                <div className="print-footer-sig">Sign of Principal</div>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+        )
+    }
+
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
 
@@ -104,7 +275,14 @@ export default function Classrooms() {
                     <h1 style={{ fontSize: '1.65rem', fontWeight: 700 }}>Classroom & Lab Management</h1>
                     <p style={{ color: 'var(--text-2)', fontSize: '.93rem', marginTop: '.2rem' }}>Define room locations, capacities, and type. All data persists locally.</p>
                 </div>
-                <button onClick={openAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }}>➕ Add Room</button>
+                <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => setPrintJob({ mode: 'bulk', data: filtered })} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--text-2)', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit' }}>
+                        🖨️ Export All {filtered.length} (PDF)
+                    </button>
+                    <button onClick={openAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }}>
+                        ➕ Add Room
+                    </button>
+                </div>
             </div>
 
             {/* Stats bar */}
@@ -170,6 +348,7 @@ export default function Classrooms() {
                                         {rtype === 'lab' ? 'Lab' : 'Classroom'}
                                     </span>
                                 </div>
+                                <div style={{ fontSize: '.8rem', color: 'var(--text-3)', marginBottom: '.6rem', fontWeight: 600 }}>🏛️ {r.department || 'Computer Engineering'}</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{r.capacity}</div>
                                 <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginBottom: '.5rem' }}>Max Seating Capacity</div>
                                 <div style={{ background: 'var(--surface2)', borderRadius: 99, height: 5, overflow: 'hidden', marginBottom: '.75rem' }}>
@@ -201,6 +380,12 @@ export default function Classrooms() {
                             <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Capacity *</label>
                             <input style={inp} type="number" placeholder="e.g. 80" min={1} value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))} />
                         </div>
+                    </div>
+                    <div style={{ marginBottom: '1.1rem' }}>
+                        <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Department *</label>
+                        <select style={inp} value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}>
+                            {getDepartments().map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
                     </div>
                     <div style={{ marginBottom: '1.1rem' }}>
                         <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Room Type *</label>
@@ -236,74 +421,10 @@ export default function Classrooms() {
 
             {/* Schedule Modal */}
             <Modal open={schedModal.open} title={`Room Schedule — ${schedModal.room?.name}`} onClose={() => setSched({ open: false, room: null, data: null })} maxWidth={1000}>
-                {schedModal.data ? (
-                    <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)' }}>Time</th>
-                                    {schedModal.data.days.map(d => (
-                                        <th key={d} style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)', color: 'var(--primary)', fontWeight: 700 }}>{d}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    const allPeriods = [...schedModal.data.periods].sort((a, b) => {
-                                        const toMin = t => {
-                                            const part = t.split('-')[0] || '0:0'
-                                            let [h, m] = part.split(':').map(Number)
-                                            if (h < 9) h += 12
-                                            return h * 60 + m
-                                        }
-                                        return toMin(a) - toMin(b)
-                                    })
-                                    return allPeriods.map(p => (
-                                        <tr key={p} style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <td style={{ padding: '.6rem', fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{p}</td>
-                                            {schedModal.data.days.map(d => {
-                                                const slot = schedModal.data.grid[d]?.[p]
-                                                const isLab = slot?.type === 'lab'
-                                                return (
-                                                    <td key={d} style={{ padding: '.3rem', borderRight: '1px solid var(--border)', height: 60, minWidth: 120 }}>
-                                                        {slot ? (
-                                                            <div
-                                                                onClick={() => setEditSlot({ ...slot, day: d, period: p, room: schedModal.room?.name, faculty: slot.faculty || slot.batches?.[0]?.faculty, batch: slot.batches?.[0]?.name })}
-                                                                style={{
-                                                                    background: isLab ? 'var(--info-l)' : 'var(--primary-l)',
-                                                                    color: isLab ? 'var(--info)' : 'var(--primary)',
-                                                                    padding: '.4rem .5rem', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${isLab ? 'var(--info)' : 'var(--primary)'}`, cursor: 'pointer', transition: 'transform 0.1s'
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                            >
-                                                                <div style={{ fontWeight: 800 }}>{slot.subject}</div>
-                                                                <div style={{ fontSize: '.68rem', fontWeight: 600, opacity: 0.9 }}>
-                                                                    {slot.division}
-                                                                </div>
-                                                                {isLab && slot.batches ? (
-                                                                    <div style={{ fontSize: '.62rem', opacity: 0.8 }}>
-                                                                        {slot.batches.map(b => b.name).join(', ')}
-                                                                    </div>
-                                                                ) : null}
-                                                                <div style={{ fontSize: '.65rem', marginTop: '.1rem' }}>👨‍🏫 {slot.faculty || slot.batches?.map(b => b.faculty).join('/')}</div>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ color: 'var(--border)', textAlign: 'center' }}>—</div>
-                                                        )}
-                                                    </td>
-                                                )
-                                            })}
-                                        </tr>
-                                    ))
-                                })()}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : <p>Generating room schedule...</p>}
+                {schedModal.data ? renderTimetableTable(schedModal.room, schedModal.data, setEditSlot) : <p>Generating room schedule...</p>}
                 <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
                     <button style={btn('transparent', 'var(--text-2)', 'var(--border)')} onClick={() => setSched({ open: false, room: null, data: null })}>Close</button>
-                    <button style={{ ...btn('var(--primary)', '#fff', 'var(--primary)'), marginLeft: '.5rem' }} onClick={() => window.print()}>🖨️ Print Room Schedule</button>
+                    <button style={{ ...btn('var(--primary)', '#fff', 'var(--primary)'), marginLeft: '.5rem' }} onClick={() => { setSched({ open: false, room: null, data: null }); setPrintJob({ mode: 'single', data: schedModal.room }) }}>🖨️ Export PDF</button>
                 </div>
             </Modal>
 

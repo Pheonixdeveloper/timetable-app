@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getGroupedSubjects, getSubjectTimetable, PERIODS, DAYS, updateTimetableSlotGlobal, updateSubjectInSemester, getSubjectsBySem } from '../data'
+import { getGroupedSubjects, getSubjectTimetable, PERIODS, DAYS, updateTimetableSlotGlobal, updateSubjectDetails, getSubjectsBySem, getDepartments } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
 
@@ -14,7 +14,7 @@ export default function Subjects() {
     const [search, setSearch] = useState('')
     const [schedModal, setSched] = useState({ open: false, subject: null, data: null })
     const [editSlot, setEditSlot] = useState(null)
-    const [editCreditsModal, setEditCreditsModal] = useState({ open: false, subject: null, sem: null, value: 0 })
+    const [editSubjectModal, setEditSubjectModal] = useState({ open: false, subject: null, sem: null, name: '', shortCode: '', code: '', credits: 0, department: '' })
     const [toast, setToast] = useState(null)
 
     const showToast = (msg, type = 'info') => {
@@ -64,21 +64,21 @@ export default function Subjects() {
         }
     }
 
-    const openEditCredits = (s, sem) => {
-        setEditCreditsModal({ open: true, subject: s, sem, value: s.credits || 0 })
+    const openEditSubject = (s, sem) => {
+        setEditSubjectModal({ open: true, subject: s, sem, name: s.name || '', shortCode: s.shortCode || s.name || '', code: s.code || '', credits: s.credits || 0, department: s.department || getDepartments()[0] || '' })
     }
 
-    const handleUpdateCredits = e => {
+    const handleUpdateSubject = e => {
         e.preventDefault()
-        const { subject, sem, value } = editCreditsModal
+        const { subject, sem, name, shortCode, code, credits, department } = editSubjectModal
         if (!subject || !sem) return
 
         const id = subject.code || subject.name
-        const success = updateSubjectInSemester(sem, id, value)
+        const success = updateSubjectDetails(sem, id, { name, shortCode, code, credits: Number(credits), department })
 
         if (success) {
-            showToast(`Updated credits for ${subject.name} in Semester ${sem}`, 'success')
-            setEditCreditsModal({ open: false, subject: null, sem: null, value: 0 })
+            showToast(`Updated details for ${name} in Semester ${sem}`, 'success')
+            setEditSubjectModal({ open: false, subject: null, sem: null, name: '', shortCode: '', code: '', credits: 0, department: '' })
             load() // Refresh list
         }
     }
@@ -116,7 +116,7 @@ export default function Subjects() {
                                     <tr style={{ background: 'var(--surface2)', textAlign: 'left', borderBottom: '2px solid var(--border)' }}>
                                         <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Subject Name</th>
                                         <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Short Code</th>
-                                        <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Admin Code</th>
+                                        <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Dept</th>
                                         <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Credits</th>
                                         <th style={{ padding: '1rem', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>Action</th>
                                     </tr>
@@ -128,14 +128,14 @@ export default function Subjects() {
                                             <td style={{ padding: '.8rem 1rem' }}>
                                                 <span style={{ background: 'var(--primary-l)', color: 'var(--primary)', padding: '.2rem .6rem', borderRadius: 8, fontSize: '.78rem', fontWeight: 700 }}>{s.shortCode}</span>
                                             </td>
-                                            <td style={{ padding: '.8rem 1rem', color: 'var(--text-2)', fontSize: '.85rem' }}>{s.code || '—'}</td>
+                                            <td style={{ padding: '.8rem 1rem', color: 'var(--text-2)', fontSize: '.85rem' }}>{s.department || '—'}</td>
                                             <td style={{ padding: '.8rem 1rem' }}>
                                                 <span style={{ fontWeight: 700, color: 'var(--text)' }}>{s.credits || 0}</span>
                                             </td>
                                             <td style={{ padding: '.8rem 1rem' }}>
                                                 <div style={{ display: 'flex', gap: '.4rem' }}>
                                                     <button style={btn('transparent', 'var(--primary)', 'var(--primary)')} onClick={() => viewSchedule(s)}>📅 View Schedule</button>
-                                                    <button style={btn('var(--surface2)', 'var(--text-2)', 'var(--border)')} onClick={() => openEditCredits(s, sem)}>✏️ Edit Credits</button>
+                                                    <button style={btn('var(--surface2)', 'var(--text-2)', 'var(--border)')} onClick={() => openEditSubject(s, sem)}>✏️ Edit Details</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -256,23 +256,47 @@ export default function Subjects() {
                 )}
             </Modal>
 
-            {/* Edit Credits Modal */}
-            <Modal open={editCreditsModal.open} title={`Edit Credits — Semester ${editCreditsModal.sem}`} onClose={() => setEditCreditsModal({ open: false, subject: null, sem: null, value: 0 })} maxWidth={360}>
-                <form onSubmit={handleUpdateCredits}>
+            {/* Edit Subject Modal */}
+            <Modal open={editSubjectModal.open} title={`Edit Details — Semester ${editSubjectModal.sem}`} onClose={() => setEditSubjectModal({ open: false, subject: null, sem: null, name: '', shortCode: '', code: '', credits: 0, department: '' })} maxWidth={450}>
+                <form onSubmit={handleUpdateSubject}>
                     <div style={{ marginBottom: '1.5rem', background: 'var(--surface2)', padding: '.8rem', borderRadius: 12 }}>
-                        <div style={{ fontWeight: 700, fontSize: '.95rem' }}>{editCreditsModal.subject?.name}</div>
-                        <div style={{ fontSize: '.8rem', color: 'var(--text-3)', marginTop: '.2rem' }}>{editCreditsModal.subject?.code || editCreditsModal.subject?.shortCode}</div>
+                        <div style={{ fontWeight: 700, fontSize: '.95rem' }}>{editSubjectModal.subject?.name}</div>
+                        <div style={{ fontSize: '.8rem', color: 'var(--text-3)', marginTop: '.2rem' }}>{editSubjectModal.subject?.code || editSubjectModal.subject?.shortCode}</div>
+                    </div>
+                    <div style={{ marginBottom: '1.1rem' }}>
+                        <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Subject Name *</label>
+                        <input type="text" style={inp} required value={editSubjectModal.name}
+                            onChange={e => setEditSubjectModal(m => ({ ...m, name: e.target.value }))}
+                            placeholder="e.g. Operating Systems" />
+                    </div>
+                    <div style={{ marginBottom: '1.1rem' }}>
+                        <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Short Code *</label>
+                        <input type="text" style={inp} required value={editSubjectModal.shortCode}
+                            onChange={e => setEditSubjectModal(m => ({ ...m, shortCode: e.target.value }))}
+                            placeholder="e.g. OS" />
+                    </div>
+                    <div style={{ marginBottom: '1.1rem' }}>
+                        <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Unique Code</label>
+                        <input type="text" style={inp} value={editSubjectModal.code}
+                            onChange={e => setEditSubjectModal(m => ({ ...m, code: e.target.value }))}
+                            placeholder="e.g. 2CEIT401" />
+                    </div>
+                    <div style={{ marginBottom: '1.1rem' }}>
+                        <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Department *</label>
+                        <select style={inp} value={editSubjectModal.department} onChange={e => setEditSubjectModal(m => ({ ...m, department: e.target.value }))}>
+                            {getDepartments().map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
                     </div>
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem', color: 'var(--text-2)' }}>Subject Credits</label>
-                        <input type="number" step="0.5" style={inp} required value={editCreditsModal.value}
-                            onChange={e => setEditCreditsModal(m => ({ ...m, value: e.target.value }))}
+                        <input type="number" step="0.5" style={inp} required value={editSubjectModal.credits}
+                            onChange={e => setEditSubjectModal(m => ({ ...m, credits: e.target.value }))}
                             placeholder="e.g. 4.0" />
-                        <p style={{ fontSize: '.75rem', color: 'var(--warning)', marginTop: '.6rem' }}>⚠️ This update will <strong>only affect Semester {editCreditsModal.sem}</strong>. Changes will not apply to other semesters.</p>
+                        <p style={{ fontSize: '.75rem', color: 'var(--warning)', marginTop: '.6rem' }}>⚠️ This update will <strong>only affect Semester {editSubjectModal.sem}</strong>. Changes will not apply to other semesters.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'flex-end' }}>
-                        <button type="button" style={btn('transparent', 'var(--text-2)', 'var(--border)')} onClick={() => setEditCreditsModal({ open: false, subject: null, sem: null, value: 0 })}>Cancel</button>
-                        <button type="submit" style={btn('var(--primary)', '#fff', 'var(--primary)')}>💾 Save for Sem {editCreditsModal.sem}</button>
+                        <button type="button" style={btn('transparent', 'var(--text-2)', 'var(--border)')} onClick={() => setEditSubjectModal({ open: false, subject: null, sem: null, name: '', shortCode: '', code: '', credits: 0, department: '' })}>Cancel</button>
+                        <button type="submit" style={btn('var(--primary)', '#fff', 'var(--primary)')}>💾 Save for Sem {editSubjectModal.sem}</button>
                     </div>
                 </form>
             </Modal>

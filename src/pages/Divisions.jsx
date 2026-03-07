@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDivisions, setDivisions, getDivisionsBySem, getClassrooms, uid } from '../data'
+import { getDivisions, setDivisions, getDivisionsBySem, getClassrooms, uid, getDepartments } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
 
@@ -20,7 +20,7 @@ export default function Divisions() {
     const [toast, setToast] = useState(null)
     const [modal, setModal] = useState({ open: false, editing: null })
     const [delModal, setDel] = useState({ open: false, id: null, name: '' })
-    const [form, setForm] = useState({ semester: 4, name: '', strength: '', shift: 'evening' })
+    const [form, setForm] = useState({ semester: 4, name: '', strength: '', shift: 'evening', department: '' })
 
     const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800) }
     const load = useCallback(() => setDivState(getDivisionsBySem(activeSem)), [activeSem])
@@ -30,23 +30,32 @@ export default function Divisions() {
     const classrooms = getClassrooms().sort((a, b) => a.capacity - b.capacity)
     const isCore = activeSem <= 4
 
-    const openAdd = () => { setForm({ semester: activeSem, name: '', strength: '', shift: 'evening' }); setModal({ open: true, editing: null }) }
-    const openEdit = d => { setForm({ semester: d.semester, name: d.name, strength: d.strength, shift: d.shift || 'evening' }); setModal({ open: true, editing: d }) }
+    const openAdd = () => {
+        const depts = getDepartments()
+        setForm({ semester: activeSem, name: '', strength: '', shift: 'evening', department: depts[0] || '' });
+        setModal({ open: true, editing: null })
+    }
+    const openEdit = d => {
+        const depts = getDepartments()
+        setForm({ semester: d.semester, name: d.name, strength: d.strength, shift: d.shift || 'evening', department: d.department || depts[0] || '' });
+        setModal({ open: true, editing: d })
+    }
     const closeModal = () => setModal({ open: false, editing: null })
 
     const handleSave = e => {
         e.preventDefault()
-        const sem = parseInt(form.semester, 10), name = form.name.trim().toUpperCase(), strength = parseInt(form.strength, 10), shift = form.shift || 'evening'
+        const sem = parseInt(form.semester, 10), name = form.name.trim().toUpperCase(), strength = parseInt(form.strength, 10), shift = form.shift || 'evening', department = form.department
         if (!sem) return showToast('Select a semester.', 'error')
         if (!name) return showToast('Division name is required.', 'error')
+        if (!department) return showToast('Department is required.', 'error')
         if (!strength || strength < 1) return showToast('Enter valid strength.', 'error')
         const all = getDivisions()
         if (modal.editing) {
-            setDivisions(all.map(d => d.id === modal.editing.id ? { ...d, semester: sem, name, strength, shift } : d))
+            setDivisions(all.map(d => d.id === modal.editing.id ? { ...d, semester: sem, name, strength, shift, department } : d))
             showToast(`${name} updated.`, 'success')
         } else {
             if (all.find(d => d.name.toLowerCase() === name.toLowerCase())) return showToast('Division already exists.', 'error')
-            setDivisions([...all, { id: uid(), semester: sem, name, strength, shift }])
+            setDivisions([...all, { id: uid(), semester: sem, name, strength, shift, department }])
             showToast(`${name} added.`, 'success')
         }
         setActiveSem(sem); load(); closeModal()
@@ -125,6 +134,7 @@ export default function Divisions() {
                                         {fit ? `✅ Fits ${fit.name}` : '⚠️ Exceeds rooms'}
                                     </span>
                                 </div>
+                                <div style={{ fontSize: '.8rem', color: 'var(--text-3)', marginBottom: '.6rem', fontWeight: 600 }}>🏛️ {d.department || 'Computer Engineering'}</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{d.strength}</div>
                                 <div style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>Students</div>
                                 <div style={{ background: 'var(--surface2)', borderRadius: 99, height: 6, overflow: 'hidden', margin: '.6rem 0' }}>
@@ -163,6 +173,12 @@ export default function Divisions() {
                             <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Division Name *</label>
                             <input style={inp} placeholder="e.g. 4CE-A" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                         </div>
+                    </div>
+                    <div style={{ marginBottom: '1.1rem' }}>
+                        <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Department *</label>
+                        <select style={inp} value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}>
+                            {getDepartments().map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.1rem' }}>
                         <div>

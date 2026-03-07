@@ -3,7 +3,7 @@ import {
     getDivisionsBySem, getSubjectsBySem, getTimetables, setTimetables,
     generateTimetable, getSubjects, setSubjects, uid,
     subjectName, subjectDisplay, subjectFullCode,
-    getClassrooms, getFaculty
+    getClassrooms, getFaculty, getDepartments
 } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
@@ -20,6 +20,7 @@ const sName = (s) => subjectName(s)
 export default function Timetable() {
     const [sem, setSem] = useState(() => Number(sessionStorage.getItem('tt_draft_sem')) || 4)
     const [divId, setDivId] = useState(() => sessionStorage.getItem('tt_draft_div') || '')
+    const [department, setDepartment] = useState(() => sessionStorage.getItem('tt_draft_dept') || '')
     const [ttData, setTtData] = useState(() => {
         const saved = sessionStorage.getItem('tt_draft_data')
         return saved ? JSON.parse(saved) : null
@@ -42,6 +43,12 @@ export default function Timetable() {
         else sessionStorage.removeItem('tt_draft_data')
     }
 
+    const handleDeptChange = e => {
+        const d = e.target.value
+        setDepartment(d)
+        sessionStorage.setItem('tt_draft_dept', d)
+    }
+
     const handleSemChange = e => {
         const s = Number(e.target.value)
         setSem(s)
@@ -58,6 +65,8 @@ export default function Timetable() {
     }
 
     const generate = useCallback(() => {
+        if (!department) { showToast('Select a department first.', 'error'); return }
+
         const d = divs.find(x => x.id === divId)
         if (!d) { showToast('Select a division first.', 'error'); return }
         const tt = generateTimetable(sem, d.name, d.strength, d.shift)
@@ -67,10 +76,11 @@ export default function Timetable() {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         tt.generatedAt = `${days[now.getDay()]}, ${now.toLocaleString()}`;
         tt.effectiveDate = customDate;
+        tt.department = department; // Save the selected department for the print out
 
         updateTtData(tt)
         showToast('Timetable preview generated! Remember to save.', 'info')
-    }, [sem, divId, divs, customDate])
+    }, [sem, divId, divs, customDate, department])
 
     const loadSaved = useCallback(() => {
         const d = divs.find(x => x.id === divId)
@@ -83,18 +93,30 @@ export default function Timetable() {
 
     const openSubjectEditor = () => {
         const s = getSubjectsBySem(sem)
-        // For editor, flatten to name strings for editing simplicity
-        setSubForm(s.core.map(c => ({ id: uid(), name: sName(c), code: subjectFullCode(c) || '', credits: c.credits || 0 })))
+        setSubForm(s.core.map(c => ({
+            id: uid(),
+            name: typeof c === 'object' ? c.name : c,
+            shortCode: typeof c === 'object' ? c.shortCode : c,
+            code: typeof c === 'object' ? c.code : '',
+            credits: typeof c === 'object' ? c.credits : 0
+        })))
         setSubModal(true)
     }
 
     const saveSubjects = () => {
         const all = getSubjects()
         const existing = all[sem] || { core: [], electives: [] }
-        // Save back — if code present keep as object else as string
-        existing.core = subForm.map(s => s.code ? { code: s.code, shortCode: s.code.split(/[()]/).pop() || s.code, name: s.name, credits: Number(s.credits) || 0 } : s.name).filter(x => typeof x === 'string' ? x : x.name)
-        all[sem] = existing; setSubjects(all)
-        setSubModal(false); showToast('Subjects updated.', 'success')
+        existing.core = subForm.map(s => ({
+            code: s.code,
+            shortCode: s.shortCode || s.name,
+            name: s.name,
+            credits: Number(s.credits) || 0
+        })).filter(x => x.name.trim() !== '')
+        all[sem] = existing;
+        setSubjects(all)
+        setSubModal(true) // Keep modal open or close? The original closed it.
+        setSubModal(false);
+        showToast(`Subjects for Semester ${sem} updated.`, 'success')
     }
 
     const allPeriods = ttData
@@ -202,6 +224,7 @@ export default function Timetable() {
     const subjects = getSubjectsBySem(sem)
     const classroomsList = getClassrooms()
     const facultyList = getFaculty()
+    const departmentsList = getDepartments()
     // Flat subject name list for slot dropdown in edit modal
     const allSubjectNames = [
         ...subjects.core.map(sName),
@@ -218,20 +241,27 @@ export default function Timetable() {
         <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }} className="page-wrapper">
 
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="no-print" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
                 <div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', background: 'var(--accent-l, #f3e8ff)', color: 'var(--accent, #7209b7)', fontSize: '.75rem', fontWeight: 600, padding: '.25rem .7rem', borderRadius: 99, marginBottom: '.4rem' }}>📅 STEP 3</div>
-                    <h1 style={{ fontSize: '1.65rem', fontWeight: 700 }}>Timetable Generator</h1>
-                    <p style={{ color: 'var(--text-2)', fontSize: '.93rem', marginTop: '.2rem' }}>Auto-generate weekly timetables. Click any slot to edit. Sem 1–4: core only; 5–8: core + electives.</p>
+                    <div className="no-print" style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', background: 'var(--accent-l, #f3e8ff)', color: 'var(--accent, #7209b7)', fontSize: '.75rem', fontWeight: 600, padding: '.25rem .7rem', borderRadius: 99, marginBottom: '.4rem' }}>📅 STEP 3</div>
+                    <h1 style={{ fontSize: '1.65rem', fontWeight: 700 }}>CE Timetable {ttData && `— Semester ${ttData.sem} (${ttData.divName})`}</h1>
+                    <p className="no-print" style={{ color: 'var(--text-2)', fontSize: '.93rem', marginTop: '.2rem' }}>Auto-generate weekly timetables. Click any slot to edit. Sem 1–4: core only; 5–8: core + electives.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                <div className="no-print" style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                     <button onClick={openSubjectEditor} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit' }}>✏️ Edit Subjects</button>
-                    <button onClick={() => window.print()} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit' }}>🖨️ Print</button>
+                    <button onClick={() => window.print()} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit' }}>🖨️ Export PDF</button>
                 </div>
             </div>
 
             {/* Controls */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.5rem', transition: 'var(--transition)' }}>
+            <div className="no-print" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1.5rem', transition: 'var(--transition)' }}>
+                <div style={{ flex: '1.5', minWidth: 200 }}>
+                    <label style={{ fontSize: '.85rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '.3rem' }}>Department *</label>
+                    <select style={inp} value={department} onChange={handleDeptChange} required>
+                        <option value="">— Select Department —</option>
+                        {departmentsList.map(dept => <option key={dept} value={dept}>{dept}</option>)}
+                    </select>
+                </div>
                 <div style={{ flex: '1', minWidth: 160 }}>
                     <label style={{ fontSize: '.85rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '.3rem' }}>Semester</label>
                     <select style={inp} value={sem} onChange={handleSemChange}>
@@ -260,7 +290,7 @@ export default function Timetable() {
 
             {/* Subject preview — shows course code chips for object-type subjects */}
             {subjects.core.length > 0 && (
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: '1.5rem', transition: 'var(--transition)' }}>
+                <div className="no-print" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: '1.5rem', transition: 'var(--transition)' }}>
                     <div style={{ fontSize: '.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-3)', marginBottom: '.6rem' }}>
                         Subjects — Sem {sem}
                     </div>
@@ -295,136 +325,208 @@ export default function Timetable() {
                     <p>Select a semester &amp; division, then click <strong>Generate</strong>.</p>
                 </div>
             ) : (
-                <>
-                    <div style={{ fontSize: '.85rem', color: 'var(--text-2)', marginBottom: '.75rem' }}>
-                        📌 <strong>{ttData.divName}</strong> · Semester {ttData.sem} · Click any slot to edit
+                <div className="print-container">
+                    <div className="print-header show-print">
+                        <img src="/logo.png" alt="Ganpat University" style={{ height: 65, objectFit: 'contain' }} />
+                        <div className="print-header-center">
+                            <div style={{ fontSize: '13px', fontWeight: 'bold' }}>Faculty of Engineering &amp; Technology</div>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold' }}>Computer Engineering/Information Technology (A.Y. 2025-2026 Even Sem)</div>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '3px' }}>
+                                Time table w.e.f. {ttData.effectiveDate ? new Date(ttData.effectiveDate).toLocaleDateString('en-GB').replace(/\//g, '-') : '______'}
+                            </div>
+                            <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '2px', letterSpacing: '0.05em' }}>
+                                {ttData.divName}
+                            </div>
+                        </div>
+                        <div style={{ width: 240 }}></div> {/* Empty space to balance wider logo */}
                     </div>
-                    <div className="table-container" style={{ borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ background: 'var(--surface2)', padding: '.65rem .75rem', textAlign: 'left', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-2)', borderBottom: '2px solid var(--border)', width: 90 }}>Period</th>
-                                    {ttData.days.map(day => (
-                                        <th key={day} style={{ background: 'var(--primary)', color: '#fff', padding: '.65rem .5rem', textAlign: 'center', fontSize: '.8rem', borderBottom: 'none', minWidth: 120 }}>{day}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    const skippedCells = new Set();
-                                    return allPeriods.map((period, pIdx) => (
-                                        <tr key={period} style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <td style={{ padding: '.5rem .75rem', fontWeight: 600, fontSize: '.78rem', color: 'var(--text-2)', background: 'var(--surface2)', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{period}</td>
-                                            {ttData.days.map(day => {
-                                                const slotKey = `${day}-${period}`;
-                                                if (skippedCells.has(slotKey)) return null;
 
-                                                const slot = ttData.grid[day]?.[period]
-                                                if (!slot) return <td key={day} style={{ padding: '.4rem .3rem', borderRight: '1px solid var(--border)' }} />
-                                                if (slot.type === 'break') {
+                    <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '.75rem', borderBottom: '2px solid var(--border)', paddingBottom: '.5rem' }}>
+                        <div style={{ fontSize: '.95rem', color: 'var(--text)', fontWeight: 600 }}>
+                            <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Division:</span> {ttData.divName}
+                            <span style={{ margin: '0 8px', color: 'var(--text-3)' }}>|</span>
+                            <span style={{ color: 'var(--warning)', fontWeight: 800 }}>Semester:</span> {ttData.sem}
+                            <span className="no-print" style={{ marginLeft: '10px', fontSize: '.8rem', fontStyle: 'italic', fontWeight: 400 }}>(Click any slot to edit)</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            {ttData.effectiveDate && (
+                                <div style={{ fontSize: '.85rem', fontWeight: 700, color: 'var(--primary)' }}>
+                                    Effective From Date: {new Date(ttData.effectiveDate).toLocaleDateString('en-GB').replace(/\//g, '-')}
+                                </div>
+                            )}
+                            <div style={{ fontSize: '.75rem', color: 'var(--text-2)', fontWeight: 600, marginTop: '2px' }}>
+                                Exported Day & Time: {ttData.generatedAt}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="print-layout">
+                        <div className="print-main-table table-container" style={{ borderRadius: 16, border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ background: 'var(--surface2)', padding: '.65rem .75rem', textAlign: 'left', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-2)', borderBottom: '2px solid var(--border)', width: 90 }}>Period</th>
+                                        {ttData.days.map(day => (
+                                            <th key={day} style={{ background: 'var(--primary)', color: '#fff', padding: '.65rem .5rem', textAlign: 'center', fontSize: '.8rem', borderBottom: 'none', minWidth: 120 }}>{day}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        const skippedCells = new Set();
+                                        return allPeriods.map((period, pIdx) => (
+                                            <tr key={period} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                <td style={{ padding: '.5rem .75rem', fontWeight: 600, fontSize: '.78rem', color: 'var(--text-2)', background: 'var(--surface2)', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{period}</td>
+                                                {ttData.days.map(day => {
+                                                    const slotKey = `${day}-${period}`;
+                                                    if (skippedCells.has(slotKey)) return null;
+
+                                                    const slot = ttData.grid[day]?.[period]
+                                                    if (!slot) return <td key={day} style={{ padding: '.4rem .3rem', borderRight: '1px solid var(--border)' }} />
+                                                    if (slot.type === 'break') {
+                                                        return (
+                                                            <td key={day} colSpan={ttData.days.length} style={{ textAlign: 'center', fontSize: '.78rem', color: 'var(--text-3)', fontStyle: 'italic', background: 'var(--bg)', padding: '.4rem', borderRight: '1px solid var(--border)' }}>
+                                                                🍽️ {slot.subject}
+                                                            </td>
+                                                        )
+                                                    }
+
+                                                    let rowSpan = 1;
+                                                    const isLab = slot.type === 'lab';
+
+                                                    if (isLab) {
+                                                        const nextPeriod = allPeriods[pIdx + 1];
+                                                        const nextSlot = ttData.grid[day]?.[nextPeriod];
+                                                        if (nextSlot && nextSlot.type === 'lab' && nextSlot.subject === slot.subject) {
+                                                            rowSpan = 2;
+                                                            skippedCells.add(`${day}-${nextPeriod}`);
+                                                        }
+                                                    }
+
+                                                    const colors = subjectColorMap[slot.subject] || 'var(--surface2)|var(--text-2)';
+                                                    const [bg, fg] = colors.split('|');
+
                                                     return (
-                                                        <td key={day} colSpan={ttData.days.length} style={{ textAlign: 'center', fontSize: '.78rem', color: 'var(--text-3)', fontStyle: 'italic', background: 'var(--bg)', padding: '.4rem', borderRight: '1px solid var(--border)' }}>
-                                                            🍽️ {slot.subject}
+                                                        <td key={day} rowSpan={rowSpan} style={{ padding: '.4rem .3rem', borderRight: '1px solid var(--border)', verticalAlign: 'top' }}
+                                                            onDragOver={handleDragOver}
+                                                            onDrop={(e) => handleDrop(e, day, period)}>
+                                                            <div onClick={() => openEdit(day, period)}
+                                                                className="slot-card"
+                                                                draggable={slot.type !== 'break'}
+                                                                onDragStart={(e) => handleDragStart(e, day, period)}
+                                                                style={{
+                                                                    padding: '.35rem .4rem',
+                                                                    borderRadius: 6,
+                                                                    background: bg,
+                                                                    color: fg,
+                                                                    fontSize: '.72rem',
+                                                                    fontWeight: 500,
+                                                                    cursor: 'pointer',
+                                                                    minHeight: rowSpan > 1 ? 110 : 52,
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    gap: '.4rem',
+                                                                    border: isLab ? `1.5px solid ${fg}` : 'none',
+                                                                    transition: 'transform .12s',
+                                                                    opacity: isLab ? 0.9 : 1
+                                                                }}>
+
+                                                                {slot.batches ? (
+                                                                    // Multi-batch Lab View
+                                                                    <>
+                                                                        <div style={{ fontWeight: 800, borderBottom: `1px solid var(--border)`, paddingBottom: '.2rem', marginBottom: '.1rem' }}>
+                                                                            {slot.subject} (LAB)
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+                                                                            {slot.batches.map(b => (
+                                                                                <div key={b.name} style={{ textAlign: 'left', lineHeight: 1.2, paddingLeft: '.2rem', borderLeft: `2px solid var(--border)` }}>
+                                                                                    <div style={{ fontSize: '.68rem', fontWeight: 600 }}>{ttData.divName}-{b.name}</div>
+                                                                                    <div style={{ fontSize: '.68rem', fontWeight: 600 }}>📍 {b.room}</div>
+                                                                                    <div style={{ opacity: 0.8, fontSize: '.65rem', marginTop: '.1rem' }}>👨‍🏫 {b.faculty || 'TBD'}</div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    // Theory View
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '.25rem' }}>
+                                                                        <div style={{ fontWeight: 800 }}>{slot.subject || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>— empty —</span>}</div>
+                                                                        <div style={{ fontSize: '.68rem', fontWeight: 600 }}>{ttData.divName}</div>
+                                                                        {slot.room && <div style={{ fontSize: '.68rem', fontWeight: 600 }}>📍 {slot.room}</div>}
+                                                                        {slot.faculty && <div style={{ fontSize: '.65rem', marginTop: '.1rem', opacity: 0.8 }}>👨‍🏫 {slot.faculty}</div>}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                     )
+                                                })}
+                                            </tr>
+                                        ));
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* RIGHT SIDE SUMMARY TABLE (PRINT ONLY) */}
+                        <div className="print-summary-table-container no-print" style={{ display: 'none' }}></div>
+                        <style dangerouslySetInnerHTML={{ __html: `@media print { .print-summary-table-container { display: block !important; } }` }} />
+                        <div className="print-summary-table-container">
+                            <table className="print-summary-table">
+                                <thead>
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        const counts = {}
+                                        let total = 0
+                                        allPeriods.forEach(p => {
+                                            ttData.days.forEach(d => {
+                                                const slot = ttData.grid[d]?.[p]
+                                                if (slot && slot.subject && slot.type !== 'break' && slot.type !== 'empty') {
+                                                    counts[slot.subject] = (counts[slot.subject] || 0) + 1
+                                                    total++
                                                 }
+                                            })
+                                        })
+                                        return (
+                                            <>
+                                                {Object.entries(counts).map(([sub, count]) => (
+                                                    <tr key={sub}>
+                                                        <td>{sub}</td>
+                                                        <td style={{ textAlign: 'center' }}>{count}</td>
+                                                    </tr>
+                                                ))}
+                                                <tr>
+                                                    <td style={{ fontWeight: 'bold' }}>Total</td>
+                                                    <td style={{ fontWeight: 'bold', textAlign: 'center' }}>{total}</td>
+                                                </tr>
+                                            </>
+                                        )
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                                                let rowSpan = 1;
-                                                const isLab = slot.type === 'lab';
-
-                                                if (isLab) {
-                                                    const nextPeriod = allPeriods[pIdx + 1];
-                                                    const nextSlot = ttData.grid[day]?.[nextPeriod];
-                                                    if (nextSlot && nextSlot.type === 'lab' && nextSlot.subject === slot.subject) {
-                                                        rowSpan = 2;
-                                                        skippedCells.add(`${day}-${nextPeriod}`);
-                                                    }
-                                                }
-
-                                                const colors = subjectColorMap[slot.subject] || 'var(--surface2)|var(--text-2)';
-                                                const [bg, fg] = colors.split('|');
-
-                                                return (
-                                                    <td key={day} rowSpan={rowSpan} style={{ padding: '.4rem .3rem', borderRight: '1px solid var(--border)', verticalAlign: 'top' }}
-                                                        onDragOver={handleDragOver}
-                                                        onDrop={(e) => handleDrop(e, day, period)}>
-                                                        <div onClick={() => openEdit(day, period)}
-                                                            className="slot-card"
-                                                            draggable={slot.type !== 'break'}
-                                                            onDragStart={(e) => handleDragStart(e, day, period)}
-                                                            style={{
-                                                                padding: '.35rem .4rem',
-                                                                borderRadius: 6,
-                                                                background: bg,
-                                                                color: fg,
-                                                                fontSize: '.72rem',
-                                                                fontWeight: 500,
-                                                                cursor: 'pointer',
-                                                                minHeight: rowSpan > 1 ? 110 : 52,
-                                                                display: 'flex',
-                                                                flexDirection: 'column',
-                                                                gap: '.4rem',
-                                                                border: isLab ? `1.5px solid ${fg}` : 'none',
-                                                                transition: 'transform .12s',
-                                                                opacity: isLab ? 0.9 : 1
-                                                            }}>
-
-                                                            {slot.batches ? (
-                                                                // Multi-batch Lab View
-                                                                <>
-                                                                    <div style={{ fontWeight: 800, borderBottom: `1px solid var(--border)`, paddingBottom: '.2rem', marginBottom: '.1rem' }}>
-                                                                        {slot.subject} (LAB)
-                                                                    </div>
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
-                                                                        {slot.batches.map(b => (
-                                                                            <div key={b.name} style={{ textAlign: 'left', lineHeight: 1.2, paddingLeft: '.2rem', borderLeft: `2px solid var(--border)` }}>
-                                                                                <div style={{ fontSize: '.68rem', fontWeight: 600 }}>{ttData.divName}-{b.name}</div>
-                                                                                <div style={{ fontSize: '.68rem', fontWeight: 600 }}>📍 {b.room}</div>
-                                                                                <div style={{ opacity: 0.8, fontSize: '.65rem', marginTop: '.1rem' }}>👨‍🏫 {b.faculty || 'TBD'}</div>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                // Theory View
-                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '.25rem' }}>
-                                                                    <div style={{ fontWeight: 800 }}>{slot.subject || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>— empty —</span>}</div>
-                                                                    <div style={{ fontSize: '.68rem', fontWeight: 600 }}>{ttData.divName}</div>
-                                                                    {slot.room && <div style={{ fontSize: '.68rem', fontWeight: 600 }}>📍 {slot.room}</div>}
-                                                                    {slot.faculty && <div style={{ fontSize: '.65rem', marginTop: '.1rem', opacity: 0.8 }}>👨‍🏫 {slot.faculty}</div>}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                )
-                                            })}
-                                        </tr>
-                                    ));
-                                })()}
-                            </tbody>
-                        </table>
+                    <div className="print-footer" style={{ display: 'none' }}>
+                        <style dangerouslySetInnerHTML={{ __html: `@media print { .print-footer { display: flex !important; } }` }} />
+                        <div className="print-footer-sig">Sign of TimeTable Coordinator</div>
+                        <div className="print-footer-sig">Sign of HOD</div>
+                        <div className="print-footer-sig">Sign of Principal</div>
                     </div>
 
                     {/* Color legend & Timestamp */}
-                    <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div className="no-print" style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                         <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                             {Object.entries(subjectColorMap).map(([subj, colors]) => {
                                 const [bg, fg] = colors.split('|')
                                 return <span key={subj} style={{ background: bg, color: fg, padding: '.25rem .65rem', borderRadius: 99, fontSize: '.78rem', fontWeight: 500 }}>{subj}</span>
                             })}
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                            {ttData.effectiveDate && (
-                                <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '.15rem' }}>
-                                    📅 Effective from: {new Date(ttData.effectiveDate).toLocaleDateString(undefined, { dateStyle: 'long' })}
-                                </div>
-                            )}
-                            <div style={{ fontSize: '.7rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
-                                🕒 Generated on {ttData.generatedAt}
-                            </div>
-                        </div>
                     </div>
-                </>
+                </div>
             )}
 
             {/* Edit Slot Modal */}
@@ -502,16 +604,19 @@ export default function Timetable() {
 
             <Modal open={subModal} title={`Edit Core Subjects — Semester ${sem}`} onClose={() => setSubModal(false)}>
                 <div style={{ marginBottom: '1rem', fontSize: '.85rem', color: 'var(--text-2)' }}>Edit subjects for Sem {sem}. Changes persist and affect timetable generation.</div>
-                <div key="header" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 50px auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>
-                    <div>Code</div>
-                    <div>Name</div>
+                <div key="header" style={{ display: 'grid', gridTemplateColumns: '90px 100px 1fr 50px auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>
+                    <div>Admin Code</div>
+                    <div>Short Code</div>
+                    <div>Full Name</div>
                     <div>Cr</div>
                     <div></div>
                 </div>
                 {subForm.map((s, i) => (
-                    <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 50px auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center' }}>
+                    <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '90px 100px 1fr 50px auto', gap: '.4rem', marginBottom: '.5rem', alignItems: 'center' }}>
                         <input style={{ ...inp, width: 90, fontSize: '.8rem', padding: '.45rem .6rem' }} placeholder="Code" value={s.code}
                             onChange={e => setSubForm(sf => sf.map((x, j) => j === i ? { ...x, code: e.target.value } : x))} />
+                        <input style={{ ...inp, width: 100, fontSize: '.8rem', padding: '.45rem .6rem' }} placeholder="S-Code" value={s.shortCode}
+                            onChange={e => setSubForm(sf => sf.map((x, j) => j === i ? { ...x, shortCode: e.target.value } : x))} />
                         <input style={{ ...inp, fontSize: '.88rem' }} placeholder="Subject name" value={s.name}
                             onChange={e => setSubForm(sf => sf.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
                         <input style={{ ...inp, width: 50, fontSize: '.8rem', padding: '.45rem .6rem' }} type="number" placeholder="Cr" value={s.credits}
@@ -521,7 +626,7 @@ export default function Timetable() {
                     </div>
                 ))}
                 <button style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.4rem .85rem', borderRadius: 10, fontSize: '.85rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'transparent', color: 'var(--primary)', fontFamily: 'inherit', marginTop: '.5rem' }}
-                    onClick={() => setSubForm(sf => [...sf, { id: uid(), name: '', code: '' }])}>➕ Add Subject</button>
+                    onClick={() => setSubForm(sf => [...sf, { id: uid(), name: '', shortCode: '', code: '', credits: 0 }])}>➕ Add Subject</button>
                 <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                     <button style={{ display: 'inline-flex', alignItems: 'center', padding: '.5rem 1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--border)', background: 'transparent', color: 'var(--text-2)', fontFamily: 'inherit' }} onClick={() => setSubModal(false)}>Cancel</button>
                     <button style={{ display: 'inline-flex', alignItems: 'center', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }} onClick={saveSubjects}>💾 Save Subjects</button>

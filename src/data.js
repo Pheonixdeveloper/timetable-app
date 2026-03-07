@@ -9,10 +9,21 @@ const KEYS = {
     allocation: 'tt_allocation',
     timetables: 'tt_timetables',
     faculty: 'tt_faculty',
+    departments: 'tt_departments',
 };
 
 
 const DEFAULTS = {
+    departments: [
+        'Computer Engineering',
+        'Information Technology',
+        'Electronics & Communication',
+        'Mechanical Engineering',
+        'Civil Engineering',
+        'Electrical Engineering',
+        'Business Administration',
+        'Science & Humanities'
+    ],
     classrooms: [
         // Classrooms (lectures) — edit capacity as needed
         { id: 'r1', name: '1NB210', capacity: 120, type: 'classroom' },
@@ -185,6 +196,7 @@ function set(key, value) {
 }
 
 export function init() {
+    if (!get(KEYS.departments)) set(KEYS.departments, DEFAULTS.departments);
     if (!get(KEYS.classrooms)) set(KEYS.classrooms, DEFAULTS.classrooms);
     if (!get(KEYS.divisions)) set(KEYS.divisions, DEFAULTS.divisions);
     if (!get(KEYS.subjects)) set(KEYS.subjects, DEFAULTS.subjects);
@@ -192,6 +204,10 @@ export function init() {
 }
 
 export function uid() { return 'id_' + Math.random().toString(36).substr(2, 9); }
+
+// Departments
+export const getDepartments = () => get(KEYS.departments) ?? [];
+export const setDepartments = (d) => set(KEYS.departments, d);
 
 // Classrooms
 export const getClassrooms = () => get(KEYS.classrooms) ?? [];
@@ -209,7 +225,8 @@ export const getSubjectsBySem = (s) => { const sb = getSubjects(); return sb[s] 
 export const getAllUniqueSubjects = () => {
     const all = getSubjects();
     const unique = new Map();
-    const norm = (s) => (typeof s === 'object' && s !== null) ? s : { name: s, shortCode: s, code: '', credits: 0 };
+    const depts = getDepartments()
+    const norm = (s) => (typeof s === 'object' && s !== null) ? s : { name: s, shortCode: s, code: '', credits: 0, department: depts[0] || '' };
 
     Object.values(all).forEach(sem => {
         [...(sem.core || []), ...(sem.electives || []).flatMap(g => g.options || [])].forEach(s => {
@@ -223,8 +240,9 @@ export const getAllUniqueSubjects = () => {
 
 export const getGroupedSubjects = () => {
     const all = getSubjects();
+    const depts = getDepartments()
     const grouped = {};
-    const norm = (s) => (typeof s === 'object' && s !== null) ? s : { name: s, shortCode: s, code: '', credits: 0 };
+    const norm = (s) => (typeof s === 'object' && s !== null) ? s : { name: s, shortCode: s, code: '', credits: 0, department: depts[0] || '' };
 
     Object.keys(all).forEach(sem => {
         const semSubjects = all[sem];
@@ -279,22 +297,25 @@ export const updateSubjectCredits = (id, newCredits) => {
 };
 
 
-export const updateSubjectInSemester = (sem, id, newCredits) => {
+export const updateSubjectDetails = (sem, id, details) => {
     const all = getSubjects();
     const updated = { ...all };
     const semData = updated[sem];
     if (!semData) return false;
 
-    const credits = Number(newCredits) || 0;
     let found = false;
+
+    const applyDetails = (oldObj) => {
+        found = true;
+        return { ...oldObj, ...details };
+    };
 
     if (semData.core) {
         semData.core = semData.core.map(subj => {
             if (typeof subj === 'object' && subj !== null) {
-                if (subj.code === id || subj.name === id) { found = true; return { ...subj, credits }; }
+                if (subj.code === id || subj.name === id) return applyDetails(subj);
             } else if (subj === id) {
-                found = true;
-                return { name: subj, shortCode: subj, code: '', credits };
+                return applyDetails({ name: subj, shortCode: subj, code: '', credits: 0, hasLab: false, labOnly: false, department: '' });
             }
             return subj;
         });
@@ -305,10 +326,9 @@ export const updateSubjectInSemester = (sem, id, newCredits) => {
             ...group,
             options: (group.options || []).map(subj => {
                 if (typeof subj === 'object' && subj !== null) {
-                    if (subj.code === id || subj.name === id) { found = true; return { ...subj, credits }; }
+                    if (subj.code === id || subj.name === id) return applyDetails(subj);
                 } else if (subj === id) {
-                    found = true;
-                    return { name: subj, shortCode: subj, code: '', credits };
+                    return applyDetails({ name: subj, shortCode: subj, code: '', credits: 0, hasLab: false, labOnly: false, department: '' });
                 }
                 return subj;
             })

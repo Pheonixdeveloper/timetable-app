@@ -146,7 +146,191 @@ a {
 @media print {
 
     nav,
-    .no-print {
+    .no-print,
+    button,
+    .toast {
         display: none !important;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+
+    .modal-overlay {
+        position: absolute !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+    }
+
+    .modal-content {
+        box-shadow: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+    }
+
+    .page-wrapper {
+        padding: 0 !important;
+        margin: 0 auto !important;
+        max-width: 100% !important;
+    }
+
+    /* Target the table to fit inside one landscape page tighter */
+    @page {
+        size: A4 landscape;
+        margin: 5mm;
+    }
+
+    /* Force strict Black & White Light Theme for Professional Print */
+    :root,
+    .dark {
+        --bg: #ffffff !important;
+        --surface: #ffffff !important;
+        --surface2: #ffffff !important;
+        --border: #000000 !important;
+        --text: #000000 !important;
+        --text-2: #000000 !important;
+        --text-3: #000000 !important;
+
+        /* Strip all theme colors to transparent or black */
+        --primary: #000000 !important;
+        --primary-d: #000000 !important;
+        --primary-l: transparent !important;
+        --info: #000000 !important;
+        --info-l: transparent !important;
+        --danger: #000000 !important;
+        --danger-l: transparent !important;
+        --success: #000000 !important;
+        --success-l: transparent !important;
+        --warning: #000000 !important;
+        --warning-l: transparent !important;
+        --accent: #000000 !important;
+        --accent-l: transparent !important;
+        --shadow: none !important;
+    }
+
+    /* Override any inline colored badge backgrounds */
+    span[style*="background"] {
+        background: transparent !important;
+        color: #000 !important;
+        border: 1px solid #000 !important;
+    }
+
+    .table-container {
+        overflow: visible !important;
+        box-shadow: none !important;
+        border: 1.5px solid #000 !important;
+    }
+
+    .print-header {
+        display: none !important;
+        /* Hide mostly unless explicitly shown */
+    }
+
+    .print-header.show-print {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        page-break-after: avoid;
+    }
+
+    .print-header-center {
+        text-align: center;
+        flex: 1;
+        color: #000;
+        line-height: 1.2;
+    }
+
+    .print-layout {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .print-main-table {
+        flex: 1;
+    }
+
+    .print-summary-table {
+        width: 140px;
+        border-collapse: collapse;
+        font-size: 0.6rem !important;
+        color: #000 !important;
+    }
+
+    .print-summary-table th,
+    .print-summary-table td {
+        border: 1.5px solid #000 !important;
+        padding: 2px 4px !important;
+        text-align: left;
+    }
+
+    .print-footer {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+        /* Reduced from 30px to guarantee single-page fit */
+        padding: 0 10px;
+        font-size: 0.75rem;
+        /* Slightly smaller text */
+        font-weight: 700;
+        color: #000;
+    }
+
+    .print-footer-sig {
+        border-top: 1.5px solid #000;
+        padding-top: 2px;
+        width: 160px;
+        /* Reduced width of sign lines to fit single page gracefully */
+        text-align: center;
+    }
+
+    .print-container {
+        zoom: 0.65;
+        /* aggressive scaling to violently snap to single page in Chrome */
+        transform-origin: top left;
+        color: #000 !important;
+        background: #fff !important;
+    }
+
+    .slot-card {
+        min-height: auto !important;
+        padding: 0.1rem !important;
+        gap: 0.1rem !important;
+        background: transparent !important;
+        color: #000 !important;
+        border: none !important;
+        /* Cell borders do the job */
+    }
+
+    .table-container th {
+        background: #fff !important;
+        color: #000 !important;
+        font-weight: bold !important;
+        border-bottom: 2px solid #000 !important;
+    }
+
+    .table-container th,
+    .table-container td {
+        padding: 0.1rem !important;
+        border-color: #000 !important;
+        font-size: 0.65rem !important;
+        color: #000 !important;
+    }
+
+    .slot-card-print {
+        border: none !important;
+        background: transparent !important;
+        color: #000 !important;
+        padding: 0 !important;
+    }
+
+    /* Remove forcing color background printing to avoid gray scales */
+    * {
+        color: #000 !important;
+        border-color: #000 !important;
+        text-shadow: none !important;
     }
 }

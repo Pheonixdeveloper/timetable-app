@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getFaculty, setFaculty, uid, FACULTY_ROLES, FACULTY_DEPTS, getAllUniqueSubjects, getFacultyTimetable, PERIODS, updateTimetableSlotGlobal } from '../data'
+import { getFaculty, setFaculty, uid, FACULTY_ROLES, getDepartments, getAllUniqueSubjects, getFacultyTimetable, PERIODS, updateTimetableSlotGlobal } from '../data'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
 
@@ -27,9 +27,20 @@ export default function Faculty() {
     const [modal, setModal] = useState({ open: false, editing: null })
     const [delModal, setDel] = useState({ open: false, id: null, name: '' })
     const [schedModal, setSched] = useState({ open: false, faculty: null, data: null })
-    const [form, setForm] = useState({ name: '', code: '', dept: 'Computer Engineering/IT', role: 'Professor', assignedSubjects: [] })
+    const [form, setForm] = useState({ name: '', code: '', dept: '', role: 'Professor', assignedSubjects: [] })
     const [customSub, setCustomSub] = useState('')
     const [editSlot, setEditSlot] = useState(null)
+    const [printJob, setPrintJob] = useState(null) // { mode: 'single', data: f } or { mode: 'bulk', data: filtered }
+
+    useEffect(() => {
+        if (printJob) {
+            const timer = setTimeout(() => {
+                window.print()
+                setTimeout(() => setPrintJob(null), 100) // Reset after print window closes
+            }, 300)
+            return () => clearTimeout(timer)
+        }
+    }, [printJob])
 
     const showToast = (msg, type = 'info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800) }
     const loadFac = useCallback(() => setFacState(getFaculty()), [])
@@ -38,7 +49,8 @@ export default function Faculty() {
     useEffect(() => { loadFac(); loadSubs(); }, [loadFac, loadSubs])
 
     const openAdd = () => {
-        setForm({ name: '', code: '', dept: 'Computer Engineering/IT', role: 'Professor', assignedSubjects: [] })
+        const depts = getDepartments()
+        setForm({ name: '', code: '', dept: depts[0] || '', role: 'Professor', assignedSubjects: [] })
         setModal({ open: true, editing: null })
     }
     const openEdit = f => {
@@ -120,7 +132,7 @@ export default function Faculty() {
     }
 
     // Filters
-    const allDepts = ['All', ...FACULTY_DEPTS]
+    const allDepts = ['All', ...getDepartments()]
     const allRoles = ['All', ...FACULTY_ROLES]
     const filtered = faculty
         .filter(f => deptFilter === 'All' || f.dept === deptFilter)
@@ -135,6 +147,151 @@ export default function Faculty() {
 
     const inp = { width: '100%', padding: '.6rem .85rem', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '.92rem', fontFamily: 'inherit', color: 'var(--text)', background: 'var(--surface2)', outline: 'none' }
 
+    // --- SHARED TIMETABLE RENDERER FOR PRINT & UI ---
+    const renderTimetableTable = (facultyInfo, schedData, onEdit = null) => {
+        if (!schedData) return <p>No data...</p>
+        const allPeriods = [...schedData.periods].sort((a, b) => {
+            const toMin = t => {
+                const part = t.split('-')[0] || '0:0'
+                let [h, m] = part.split(':').map(Number)
+                if (h < 9) h += 12
+                return h * 60 + m
+            }
+            return toMin(a) - toMin(b)
+        })
+
+        return (
+            <div className="table-container" style={{ borderRadius: 12, border: '1px solid var(--border)', background: '#fff' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)' }}>Time</th>
+                            {schedData.days.map(d => (
+                                <th key={d} style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)', color: 'var(--primary)', fontWeight: 700 }}>{d}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {allPeriods.map(p => (
+                            <tr key={p} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '.6rem', fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{p}</td>
+                                {schedData.days.map(d => {
+                                    const slot = schedData.grid[d]?.[p]
+                                    const isLab = slot?.type === 'lab'
+                                    return (
+                                        <td key={d} style={{ padding: '.3rem', borderRight: '1px solid var(--border)', height: 60, minWidth: 120 }}>
+                                            {slot ? (
+                                                <div
+                                                    onClick={() => onEdit ? onEdit({ ...slot, day: d, period: p, faculty: slot.faculty || facultyInfo.code }) : null}
+                                                    className={onEdit ? '' : 'slot-card-print'}
+                                                    style={{
+                                                        background: isLab ? 'var(--info-l)' : 'var(--primary-l)',
+                                                        color: isLab ? 'var(--info)' : 'var(--primary)',
+                                                        padding: '.4rem .5rem', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                                                        border: onEdit ? `1px solid ${isLab ? 'var(--info)' : 'var(--primary)'}` : 'none',
+                                                        cursor: onEdit ? 'pointer' : 'default', transition: 'transform 0.1s'
+                                                    }}
+                                                    onMouseEnter={e => onEdit && (e.currentTarget.style.transform = 'scale(0.98)')}
+                                                    onMouseLeave={e => onEdit && (e.currentTarget.style.transform = 'none')}
+                                                >
+                                                    <div style={{ fontWeight: 800 }}>{slot.subject}</div>
+                                                    <div style={{ fontSize: '.68rem', fontWeight: 600, opacity: 0.9 }}>
+                                                        {slot.division} {slot.batch ? `(Batch ${slot.batch})` : ''}
+                                                    </div>
+                                                    <div style={{ fontSize: '.65rem', marginTop: '.1rem' }}>📍 {slot.room}</div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ color: 'var(--border)', textAlign: 'center' }}>—</div>
+                                            )}
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )
+    }
+
+    // --- PRINT RENDER MODE ---
+    if (printJob) {
+        return (
+            <div style={{ background: '#fff', minHeight: '100vh', width: '100%', padding: '0px' }}>
+                {(printJob.mode === 'single' ? [printJob.data] : printJob.data).map((fac, idx, arr) => {
+                    const schedData = getFacultyTimetable(fac.code)
+
+                    const counts = {}
+                    let total = 0
+                    if (schedData) {
+                        schedData.periods.forEach(p => {
+                            schedData.days.forEach(d => {
+                                const slot = schedData.grid[d]?.[p]
+                                if (slot && slot.type !== 'break' && slot.type !== 'empty') {
+                                    counts[slot.subject] = (counts[slot.subject] || 0) + 1
+                                    total++
+                                }
+                            })
+                        })
+                    }
+
+                    return (
+                        <div key={fac.id} className="print-container" style={{ margin: '0 auto', padding: '10px 20px', pageBreakAfter: idx === arr.length - 1 ? 'auto' : 'always' }}>
+                            <div className="print-header show-print">
+                                <img src="/logo.png" alt="Ganpat University" style={{ height: 65, objectFit: 'contain' }} />
+                                <div className="print-header-center">
+                                    <div style={{ fontSize: '13px', fontWeight: 'bold' }}>Faculty of Engineering &amp; Technology</div>
+                                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>Computer Engineering/Information Technology (A.Y. 2025-2026 Even Sem)</div>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '3px' }}>
+                                        Time table w.e.f. ____________
+                                    </div>
+                                    <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '2px', letterSpacing: '0.05em' }}>
+                                        {fac.name} ({fac.code})
+                                    </div>
+                                </div>
+                                <div style={{ width: 240 }}></div>
+                            </div>
+
+                            <div className="print-layout">
+                                <div className="print-main-table">
+                                    {renderTimetableTable(fac, schedData, null)}
+                                </div>
+                                <div className="print-summary-table-container">
+                                    <table className="print-summary-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Subject</th>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(counts).map(([sub, count]) => (
+                                                <tr key={sub}>
+                                                    <td>{sub}</td>
+                                                    <td style={{ textAlign: 'center' }}>{count}</td>
+                                                </tr>
+                                            ))}
+                                            <tr>
+                                                <td style={{ fontWeight: 'bold' }}>Total</td>
+                                                <td style={{ fontWeight: 'bold', textAlign: 'center' }}>{total}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="print-footer">
+                                <div className="print-footer-sig">Sign of TimeTable Coordinator</div>
+                                <div className="print-footer-sig">Sign of HOD</div>
+                                <div className="print-footer-sig">Sign of Principal</div>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+        )
+    }
+
     return (
         <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem 4rem' }} className="page-wrapper">
 
@@ -147,9 +304,14 @@ export default function Faculty() {
                         All {faculty.length} faculty members across Computer Engineering/IT and supporting departments.
                     </p>
                 </div>
-                <button onClick={openAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }}>
-                    ➕ Add Faculty
-                </button>
+                <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => setPrintJob({ mode: 'bulk', data: filtered })} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--text-2)', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit' }}>
+                        🖨️ Export All {filtered.length} (PDF)
+                    </button>
+                    <button onClick={openAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.5rem 1.1rem', borderRadius: 10, fontSize: '.88rem', fontWeight: 600, cursor: 'pointer', border: '2px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontFamily: 'inherit' }}>
+                        ➕ Add Faculty
+                    </button>
+                </div>
             </div>
 
             {/* Summary stats */}
@@ -263,7 +425,7 @@ export default function Faculty() {
                     <div style={{ marginBottom: '1.1rem' }}>
                         <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem', color: 'var(--text-2)' }}>Department</label>
                         <select style={inp} value={form.dept} onChange={e => setForm(f => ({ ...f, dept: e.target.value }))}>
-                            {FACULTY_DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
+                            {getDepartments().map(d => <option key={d} value={d}>{d}</option>)}
                         </select>
                     </div>
 
@@ -325,70 +487,10 @@ export default function Faculty() {
 
             {/* Schedule Modal */}
             <Modal open={schedModal.open} title={`Weekly Schedule — ${schedModal.faculty?.name}`} onClose={() => setSched({ open: false, faculty: null, data: null })} maxWidth={1000}>
-                {schedModal.data ? (
-                    <div className="table-container" style={{ borderRadius: 12, border: '1px solid var(--border)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.78rem' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)' }}>Time</th>
-                                    {schedModal.data.days.map(d => (
-                                        <th key={d} style={{ background: 'var(--surface2)', padding: '.6rem', borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)', color: 'var(--primary)', fontWeight: 700 }}>{d}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    // Sort periods like in Timetable.jsx
-                                    const allPeriods = [...schedModal.data.periods].sort((a, b) => {
-                                        const toMin = t => {
-                                            const part = t.split('-')[0] || '0:0'
-                                            let [h, m] = part.split(':').map(Number)
-                                            if (h < 9) h += 12
-                                            return h * 60 + m
-                                        }
-                                        return toMin(a) - toMin(b)
-                                    })
-                                    return allPeriods.map(p => (
-                                        <tr key={p} style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <td style={{ padding: '.6rem', fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', borderRight: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{p}</td>
-                                            {schedModal.data.days.map(d => {
-                                                const slot = schedModal.data.grid[d]?.[p]
-                                                const isLab = slot?.type === 'lab'
-                                                return (
-                                                    <td key={d} style={{ padding: '.3rem', borderRight: '1px solid var(--border)', height: 60, minWidth: 120 }}>
-                                                        {slot ? (
-                                                            <div
-                                                                onClick={() => setEditSlot({ ...slot, day: d, period: p, faculty: slot.faculty || schedModal.faculty?.code })}
-                                                                style={{
-                                                                    background: isLab ? 'var(--info-l)' : 'var(--primary-l)',
-                                                                    color: isLab ? 'var(--info)' : 'var(--primary)',
-                                                                    padding: '.4rem .5rem', borderRadius: 8, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${isLab ? 'var(--info)' : 'var(--primary)'}`, cursor: 'pointer', transition: 'transform 0.1s'
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                            >
-                                                                <div style={{ fontWeight: 800 }}>{slot.subject}</div>
-                                                                <div style={{ fontSize: '.68rem', fontWeight: 600, opacity: 0.9 }}>
-                                                                    {slot.division} {slot.batch ? `(Batch ${slot.batch})` : ''}
-                                                                </div>
-                                                                <div style={{ fontSize: '.65rem', marginTop: '.1rem' }}>📍 {slot.room}</div>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ color: 'var(--border)', textAlign: 'center' }}>—</div>
-                                                        )}
-                                                    </td>
-                                                )
-                                            })}
-                                        </tr>
-                                    ))
-                                })()}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : <p>Generating schedule data...</p>}
+                {schedModal.data ? renderTimetableTable(schedModal.faculty, schedModal.data, setEditSlot) : <p>Generating schedule data...</p>}
                 <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
                     <button style={btn('transparent', 'var(--text-2)', 'var(--border)')} onClick={() => setSched({ open: false, faculty: null, data: null })}>Close</button>
-                    <button style={{ ...btn('var(--primary)', '#fff', 'var(--primary)'), marginLeft: '.5rem' }} onClick={() => window.print()}>🖨️ Print Personal Schedule</button>
+                    <button style={{ ...btn('var(--primary)', '#fff', 'var(--primary)'), marginLeft: '.5rem' }} onClick={() => { setSched({ open: false, faculty: null, data: null }); setPrintJob({ mode: 'single', data: schedModal.faculty }) }}>🖨️ Export PDF</button>
                 </div>
             </Modal>
 
