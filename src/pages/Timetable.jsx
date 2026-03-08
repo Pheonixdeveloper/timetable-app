@@ -84,11 +84,21 @@ export default function Timetable() {
 
     const loadSaved = useCallback(() => {
         const d = divs.find(x => x.id === divId)
-        if (!d) return
+        if (!d) {
+            showToast('Please select a division first to load.', 'error')
+            return
+        }
         const key = `${sem}_${d.name}`
         const tt = getTimetables()[key]
-        if (tt) { updateTtData(tt); showToast('Loaded saved timetable.', 'info') }
-        else showToast('No saved timetable. Click Generate.', 'error')
+        if (tt) { 
+            updateTtData(tt); 
+            if (tt.department) {
+                setDepartment(tt.department);
+                sessionStorage.setItem('tt_draft_dept', tt.department);
+            }
+            showToast('Loaded saved timetable.', 'success') 
+        }
+        else showToast('No saved timetable found. Click Generate.', 'error')
     }, [sem, divId, divs])
 
     const openSubjectEditor = () => {
@@ -169,11 +179,11 @@ export default function Timetable() {
 
     const saveTimetable = () => {
         if (!ttData) return
-        const key = `${sem}_${ttData.divName}`
+        const key = `${ttData.sem}_${ttData.divName}`
         const all = getTimetables()
         all[key] = ttData
         setTimetables(all)
-        showToast('Timetable saved globally!', 'success')
+        showToast('Timetable saved successfully!', 'success')
     }
 
     const openEdit = (day, period) => {

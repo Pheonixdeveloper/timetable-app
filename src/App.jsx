@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 import Dashboard from './pages/Dashboard'
 import Classrooms from './pages/Classrooms'
 import Divisions from './pages/Divisions'
@@ -23,7 +24,7 @@ export default function App() {
     const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light')
 
     return (
-        <div style={{ background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh', transition: 'background .2s, color .2s' }}>
+        <div style={{ background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh', display: 'flex', flexDirection: 'column', transition: 'background .2s, color .2s' }}>
             <Navbar theme={theme} toggleTheme={toggleTheme} />
             <Routes>
                 <Route path="/" element={<Dashboard />} />
@@ -33,6 +34,7 @@ export default function App() {
                 <Route path="/faculty" element={<Faculty />} />
                 <Route path="/subjects" element={<Subjects />} />
             </Routes>
+            <Footer />
         </div>
     )
 }

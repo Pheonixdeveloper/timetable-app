@@ -78,8 +78,8 @@ export default function Dashboard() {
             <div style={S.stepsGrid}>
                 {steps.map(st => (
                     <Link key={st.to} to={st.to} style={S.stepCard}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = st.color; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}>
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = st.color; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}>
                         <span style={{ ...S.stepNum, background: st.bg, color: st.color }}>{st.step}</span>
                         <div style={{ ...S.stepIcon, background: st.bg }}>{st.icon}</div>
                         <div style={S.stepTitle}>{st.title}</div>

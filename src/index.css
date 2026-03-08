@@ -3,10 +3,10 @@
    ============================================================ */
 
 :root {
-    --bg: #f4f6fb;
-    --surface: #ffffff;
-    --surface2: #eef1f8;
-    --border: #dce1ec;
+    --bg: linear-gradient(135deg, #eef2fa 0%, #e2e8f0 100%);
+    --surface: rgba(255, 255, 255, 0.55);
+    --surface2: rgba(255, 255, 255, 0.75);
+    --border: rgba(255, 255, 255, 0.6);
     --primary: #4361ee;
     --primary-d: #3451d1;
     --primary-l: #eef0fd;
@@ -31,10 +31,10 @@
 }
 
 .dark {
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --surface2: #334155;
-    --border: #475569;
+    --bg: linear-gradient(135deg, #090e17 0%, #172033 100%);
+    --surface: rgba(30, 41, 59, 0.45);
+    --surface2: rgba(51, 65, 85, 0.5);
+    --border: rgba(255, 255, 255, 0.1);
     --primary: #818cf8;
     --primary-d: #6366f1;
     --primary-l: rgba(129, 140, 248, 0.15);
@@ -70,9 +70,38 @@ html {
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     min-height: 100vh;
     line-height: 1.6;
+}
+
+/* Glassmorphism Effect for all Cards and Surfaces */
+.navbar,
+.stat-card,
+.modal-content,
+[style*="--surface"] {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+.dark .navbar,
+.dark .stat-card,
+.dark .modal-content,
+.dark [style*="--surface"] {
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Remove borders on inputs that are inside glass elements to keep it clean */
+input[style*="--surface2"],
+select[style*="--surface2"] {
+    border-top: none !important;
+    border-left: none !important;
 }
 
 a {
@@ -117,11 +146,15 @@ a {
     }
 
     .navbar {
-        padding: 0 1rem !important;
+        padding: 0.5rem 1rem !important;
+        height: auto !important;
+        min-height: 56px;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
     }
 }
 
-/* Cards & Grid adjustments */
+/* Cards & Grid & UX adjustments for smaller screens */
 @media (max-width: 640px) {
     h1 {
         font-size: 1.4rem !important;
@@ -133,6 +166,46 @@ a {
 
     .stat-card {
         padding: 1rem !important;
+    }
+
+    /* Stack Control blocks cleanly */
+    div[style*="align-items: flex-end"][style*="flex-wrap: wrap"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+
+    div[style*="align-items: flex-end"][style*="flex-wrap: wrap"]>div {
+        flex: none !important;
+        width: 100% !important;
+        min-width: unset !important;
+    }
+
+    div[style*="align-items: flex-end"][style*="flex-wrap: wrap"] .btn-group,
+    div[style*="align-items: flex-end"][style*="flex-wrap: wrap"] button {
+        width: 100% !important;
+        justify-content: center !important;
+        margin-top: 0.25rem;
+    }
+
+    /* Modal padding adjustment */
+    .modal-content {
+        padding: 1.5rem !important;
+    }
+
+    /* Ensure tables don't squish */
+    .table-container th,
+    .table-container td {
+        white-space: nowrap !important;
+        min-width: max-content;
+    }
+
+    /* Ensure action rows with flex-wrap space properly */
+    .action-row,
+    [style*="justify-content: space-between"][style*="flex-wrap: wrap"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.5rem !important;
     }
 }
 

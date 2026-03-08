@@ -16,8 +16,7 @@ const S = {
     },
     brand: { display: 'flex', alignItems: 'center', gap: '.6rem', fontWeight: 700, fontSize: '1.1rem', color: 'var(--primary)', marginRight: 'auto', textDecoration: 'none' },
     logoIcon: {
-        width: 36, height: 36, borderRadius: 8, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: '1rem', fontWeight: 800
+        width: 38, height: 38, objectFit: 'contain', borderRadius: 4
     },
     links: {
         display: 'flex',
@@ -39,8 +38,8 @@ export default function Navbar({ theme, toggleTheme }) {
     return (
         <nav style={S.nav} className="navbar">
             <NavLink to="/" style={S.brand}>
-                <div style={S.logoIcon}>CE</div>
-                CE Timetable
+                <img src="/company-logo.png" alt="Company Logo" style={S.logoIcon} />
+                SMART TIMETABLE
             </NavLink>
             <div style={S.links}>
                 {links.map(l => (
